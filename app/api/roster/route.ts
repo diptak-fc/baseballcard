@@ -9,7 +9,7 @@ export async function GET() {
     await requireRole("ADMIN", "CEO");
     const sql = await db();
     const people = await sql`
-      SELECT id, email, name, role, title, active
+      SELECT id, email, name, role, title, active, photo
       FROM users WHERE role = 'CSM' ORDER BY name`;
     const assignments = await sql`
       SELECT id, user_id, pod, kam, clients FROM assignments ORDER BY pod`;

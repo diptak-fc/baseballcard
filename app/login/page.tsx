@@ -38,10 +38,10 @@ function LoginForm() {
   return (
     <form onSubmit={onSubmit} className="card w-full max-w-md p-8">
       <div className="mb-8 text-center">
-        <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-navy-700 text-lg font-bold text-white">
+        <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-accent text-lg font-bold text-accent-ink">
           FC
         </div>
-        <h1 className="text-xl font-bold text-navy-800">Full Circle Agency</h1>
+        <h1 className="text-xl font-bold text-ink">Full Circle Agency</h1>
         <p className="mt-1 text-sm text-ink-muted">
           Client Success Performance Dashboard
         </p>

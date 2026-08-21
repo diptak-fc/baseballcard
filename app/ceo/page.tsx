@@ -10,6 +10,7 @@ import {
   fmtScore,
 } from "@/lib/scoring";
 import { BandChip, StatusChip, ScoreTile, Spinner, EmptyState } from "@/components/ui";
+import { Avatar } from "@/components/photo";
 
 type Item = {
   id: number;
@@ -24,6 +25,7 @@ type Item = {
   decided_at: string | null;
   name: string;
   title: string;
+  photo?: string | null;
 };
 
 export default function CeoPage() {
@@ -46,7 +48,7 @@ export default function CeoPage() {
   return (
     <div>
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-navy-800">CEO Review</h1>
+        <h1 className="text-2xl font-bold text-ink">CEO Review</h1>
         <p className="mt-1 text-sm text-ink-soft">
           Evaluations submitted by the Director of Client Success. Approve to
           publish the result to the CSM, or deny to send it back with a note.
@@ -90,7 +92,7 @@ export default function CeoPage() {
                     )}
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="text-sm font-bold text-navy-700">{fmtScore(avg)}/10</span>
+                    <span className="text-sm font-bold text-accent">{fmtScore(avg)}/10</span>
                     <StatusChip status={i.status} />
                   </div>
                 </div>
@@ -127,12 +129,15 @@ function ReviewCard({ item, onDecided }: { item: Item; onDecided: () => void }) 
   return (
     <section className="card p-6">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h3 className="text-lg font-bold text-navy-800">
-            {item.name} <span className="text-sm font-semibold text-ink-muted">({item.title})</span>
-          </h3>
-          <div className="text-sm text-ink-soft">
-            {MONTHS[item.month - 1]} {item.year}
+        <div className="flex items-center gap-3">
+          <Avatar name={item.name} photo={item.photo} size={44} />
+          <div>
+            <h3 className="text-lg font-bold text-ink">
+              {item.name} <span className="text-sm font-semibold text-ink-muted">({item.title})</span>
+            </h3>
+            <div className="text-sm text-ink-soft">
+              {MONTHS[item.month - 1]} {item.year}
+            </div>
           </div>
         </div>
         {avg !== null && band && (

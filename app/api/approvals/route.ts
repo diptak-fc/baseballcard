@@ -9,7 +9,7 @@ export async function GET() {
     const sql = await db();
     const rows = await sql`
       SELECT e.id, e.user_id, e.year, e.month, e.scores, e.feedback, e.status,
-             e.ceo_note, e.submitted_at, e.decided_at, u.name, u.title
+             e.ceo_note, e.submitted_at, e.decided_at, u.name, u.title, u.photo
       FROM evaluations e
       JOIN users u ON u.id = e.user_id
       WHERE e.status IN ('submitted', 'approved', 'denied')

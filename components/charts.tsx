@@ -12,19 +12,19 @@ import {
   Line,
 } from "recharts";
 
-const NAVY = "#33628E";
-const NAVY_DARK = "#183A5A";
-const GRID = "#E4E9F0";
-const MUTED = "#7B8698";
+const BAR = "#F6B93B";
+const LINE = "#FFD070";
+const GRID = "#25364E";
+const MUTED = "#8093AA";
 
 function ChartTooltip({ active, payload, label }: any) {
   if (!active || !payload?.length) return null;
   const v = payload[0].value;
   return (
-    <div className="rounded-lg border border-surface-line bg-white px-3 py-2 text-xs shadow-card">
+    <div className="rounded-lg border border-surface-line bg-surface-raise px-3 py-2 text-xs shadow-card">
       <div className="font-semibold text-ink">{label}</div>
       <div className="text-ink-soft">
-        Score: <span className="font-bold text-navy-700">{typeof v === "number" ? v.toFixed(1) : v}</span> / 10
+        Score: <span className="font-bold text-accent">{typeof v === "number" ? v.toFixed(1) : v}</span> / 10
       </div>
     </div>
   );
@@ -54,8 +54,8 @@ export function ScoreBarChart({
           axisLine={false}
           tickLine={false}
         />
-        <Tooltip content={<ChartTooltip />} cursor={{ fill: "#F2F6FA" }} />
-        <Bar dataKey="score" fill={NAVY} radius={[4, 4, 0, 0]} maxBarSize={36} />
+        <Tooltip content={<ChartTooltip />} cursor={{ fill: "#16233A" }} />
+        <Bar dataKey="score" fill={BAR} radius={[4, 4, 0, 0]} maxBarSize={36} />
       </BarChart>
     </ResponsiveContainer>
   );
@@ -89,9 +89,9 @@ export function TrendLineChart({
         <Line
           type="monotone"
           dataKey="score"
-          stroke={NAVY_DARK}
+          stroke={LINE}
           strokeWidth={2}
-          dot={{ r: 4, fill: NAVY_DARK, strokeWidth: 0 }}
+          dot={{ r: 4, fill: LINE, strokeWidth: 0 }}
           activeDot={{ r: 5 }}
           connectNulls
         />

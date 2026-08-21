@@ -61,7 +61,7 @@ export default function InsightsPage() {
     <div>
       <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-navy-800">Performance Insights</h1>
+          <h1 className="text-2xl font-bold text-ink">Performance Insights</h1>
           <p className="mt-1 text-sm text-ink-soft">
             Quarterly and annual view per CSM, with the recommended action based
             on the scoring criteria.
@@ -158,7 +158,7 @@ function PersonInsights({
     <div className="space-y-5">
       {/* Recommendation panel */}
       <section className="card p-6">
-        <h2 className="mb-4 text-lg font-bold text-navy-800">
+        <h2 className="mb-4 text-lg font-bold text-ink">
           Recommended action — {person.name}
         </h2>
         <div className="grid gap-4 md:grid-cols-2">
@@ -207,7 +207,7 @@ function PersonInsights({
 
       {/* Monthly chart */}
       <section className="card p-6">
-        <h2 className="mb-1 text-lg font-bold text-navy-800">Monthly average score</h2>
+        <h2 className="mb-1 text-lg font-bold text-ink">Monthly average score</h2>
         <p className="mb-4 text-xs text-ink-muted">
           Average of the six category scores for each scored month of {year}.
         </p>
@@ -217,7 +217,7 @@ function PersonInsights({
       <div className="grid gap-5 lg:grid-cols-2">
         {/* Quarterly */}
         <section className="card p-6">
-          <h2 className="mb-1 text-lg font-bold text-navy-800">Quarterly view</h2>
+          <h2 className="mb-1 text-lg font-bold text-ink">Quarterly view</h2>
           <p className="mb-4 text-xs text-ink-muted">
             US calendar quarters — Q1 is January–March.
           </p>
@@ -244,7 +244,7 @@ function PersonInsights({
 
         {/* Category strengths */}
         <section className="card p-6">
-          <h2 className="mb-1 text-lg font-bold text-navy-800">Category averages</h2>
+          <h2 className="mb-1 text-lg font-bold text-ink">Category averages</h2>
           <p className="mb-4 text-xs text-ink-muted">
             Where {person.name.split(" ")[0]} is strongest and weakest across{" "}
             {monthly.size} scored month{monthly.size === 1 ? "" : "s"}.
@@ -258,7 +258,7 @@ function PersonInsights({
 
       {/* Month-by-month table */}
       <section className="card overflow-x-auto p-6">
-        <h2 className="mb-4 text-lg font-bold text-navy-800">Month-by-month record</h2>
+        <h2 className="mb-4 text-lg font-bold text-ink">Month-by-month record</h2>
         <table className="w-full min-w-[640px] text-sm">
           <thead>
             <tr className="border-b border-surface-line text-left text-xs uppercase tracking-wide text-ink-muted">
@@ -277,7 +277,7 @@ function PersonInsights({
               return (
                 <tr key={m} className="border-b border-surface-line/60 last:border-0">
                   <td className="py-2.5 pr-4 font-semibold">{m}</td>
-                  <td className="py-2.5 pr-4 font-bold text-navy-700">{fmtScore(a)}</td>
+                  <td className="py-2.5 pr-4 font-bold text-accent">{fmtScore(a)}</td>
                   <td className="py-2.5 pr-4">
                     {b ? <BandChip band={b} label={ADMIN_BAND[b].label} /> : <span className="text-xs text-ink-muted">—</span>}
                   </td>

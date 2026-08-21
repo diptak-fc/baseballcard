@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Spinner, EmptyState } from "@/components/ui";
+import { Avatar, PhotoControl } from "@/components/photo";
 
 type Assignment = { id: number; pod: string; kam: string; clients: string[] };
 type Person = {
@@ -10,6 +11,7 @@ type Person = {
   email: string;
   title: string;
   active: boolean;
+  photo?: string | null;
   assignments: Assignment[];
 };
 
@@ -31,7 +33,7 @@ export default function RosterPage() {
     <div>
       <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-navy-800">Roster</h1>
+          <h1 className="text-2xl font-bold text-ink">Roster</h1>
           <p className="mt-1 text-sm text-ink-soft">
             Manage your CSMs and CSAs, their PODs, reporting KAMs and client
             lists. Each person signs in with the email listed here.
@@ -141,7 +143,15 @@ function PersonCard({
   return (
     <section className={"card p-6 " + (!person.active ? "opacity-60" : "")}>
       <div className="flex flex-wrap items-start justify-between gap-4">
-        <div className="flex-1">
+        <div className="flex flex-1 items-start gap-4">
+          <div className="flex flex-col items-center gap-1.5">
+            <Avatar name={person.name} photo={person.photo} size={56} />
+            <PhotoControl
+              userId={person.id}
+              hasPhoto={!!person.photo}
+              onChanged={onChanged}
+            />
+          </div>
           {editing ? (
             <div className="grid max-w-xl gap-3 sm:grid-cols-3">
               <div>
@@ -163,8 +173,8 @@ function PersonCard({
           ) : (
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="text-lg font-bold text-navy-800">{person.name}</h2>
-                <span className="chip bg-navy-50 text-navy-700">{person.title}</span>
+                <h2 className="text-lg font-bold text-ink">{person.name}</h2>
+                <span className="chip bg-accent/10 text-accent">{person.title}</span>
                 {!person.active && (
                   <span className="chip bg-surface-alt text-ink-muted">Deactivated</span>
                 )}
@@ -221,7 +231,7 @@ function PersonCard({
           />
         ) : (
           <button
-            className="text-xs font-semibold text-navy-600 hover:text-navy-800"
+            className="text-xs font-semibold text-accent hover:text-ink"
             onClick={() => setAddingAssign(true)}
           >
             + Add POD assignment
@@ -268,7 +278,7 @@ function AssignmentRow({
   return (
     <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-surface-line bg-surface-alt px-3 py-2 text-sm">
       <div>
-        <span className="font-bold text-navy-700">{assignment.pod}</span>
+        <span className="font-bold text-accent">{assignment.pod}</span>
         <span className="mx-1.5 text-ink-muted">·</span>
         <span className="font-semibold text-ink-soft">KAM: {assignment.kam}</span>
         <div className="mt-0.5 text-xs text-ink-muted">
@@ -277,7 +287,7 @@ function AssignmentRow({
       </div>
       <div className="flex gap-2">
         <button
-          className="text-xs font-semibold text-navy-600 hover:text-navy-800"
+          className="text-xs font-semibold text-accent hover:text-ink"
           onClick={() => setEditing(true)}
         >
           Edit
@@ -307,7 +317,7 @@ function AssignmentForm({
   const [clients, setClients] = useState((initial?.clients || []).join(", "));
 
   return (
-    <div className="rounded-lg border border-navy-200 bg-navy-50/50 p-3">
+    <div className="rounded-lg border border-surface-line bg-surface-raise p-3">
       <div className="grid gap-2 sm:grid-cols-3">
         <div>
           <label className="label">POD</label>
@@ -377,9 +387,9 @@ function AddPersonDialog({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-navy-900/40 p-4" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
       <form className="card w-full max-w-md p-6" onClick={(e) => e.stopPropagation()} onSubmit={submit}>
-        <h2 className="mb-4 text-lg font-bold text-navy-800">Add a CSM</h2>
+        <h2 className="mb-4 text-lg font-bold text-ink">Add a CSM</h2>
         <label className="label">Full name</label>
         <input className="input mb-3" value={name} onChange={(e) => setName(e.target.value)} required />
         <label className="label">Sign-in email</label>

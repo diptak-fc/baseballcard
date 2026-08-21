@@ -7,45 +7,54 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        // Full Circle Agency inspired palette
+        // Dark navy theme with amber/orange accents.
+        // To switch to a pure-black theme, change surface.alt to "#0B0B0D"
+        // and surface.DEFAULT to "#141416".
         navy: {
-          50: "#F2F6FA",
-          100: "#E2EAF2",
-          200: "#C0D2E4",
-          300: "#8FAECB",
+          50: "#16233A",
+          100: "#1C2C47",
+          200: "#2C4266",
+          300: "#3D5C82",
           400: "#5A85AC",
           500: "#33628E",
-          600: "#224A70",
+          600: "#7FA8CE",
           700: "#183A5A",
           800: "#122C45",
           900: "#0D2033",
         },
+        accent: {
+          DEFAULT: "#F6B93B", // amber — primary accent
+          soft: "#FFD070",
+          orange: "#ED8733",
+          ink: "#221703", // dark text placed on amber fills
+        },
         ink: {
-          DEFAULT: "#1A2333",
-          soft: "#48546A",
-          muted: "#7B8698",
+          DEFAULT: "#EDF2F8",
+          soft: "#BAC6D7",
+          muted: "#8093AA",
         },
         surface: {
-          DEFAULT: "#FFFFFF",
-          alt: "#F6F8FB",
-          line: "#E4E9F0",
+          DEFAULT: "#111C2E", // card fill
+          alt: "#0A1322", // page background
+          line: "#25364E",
+          raise: "#182740", // slightly lifted panel inside a card
         },
         band: {
-          critical: "#C2402F",
-          criticalBg: "#FCEEEC",
-          warn: "#B26E0F",
-          warnBg: "#FCF3E3",
-          good: "#2F7D46",
-          goodBg: "#EAF6EE",
-          top: "#1E5FA8",
-          topBg: "#EAF2FC",
+          critical: "#F2695C",
+          criticalBg: "#3B1512",
+          warn: "#F2B33D",
+          warnBg: "#3A2A0E",
+          good: "#5FCE7E",
+          goodBg: "#123020",
+          top: "#7FB5F0",
+          topBg: "#14263F",
         },
       },
       fontFamily: {
         sans: ["Inter", "ui-sans-serif", "system-ui", "-apple-system", "Segoe UI", "Roboto", "Helvetica Neue", "Arial", "sans-serif"],
       },
       boxShadow: {
-        card: "0 1px 2px rgba(13,32,51,0.06), 0 4px 16px rgba(13,32,51,0.06)",
+        card: "0 1px 2px rgba(0,0,0,0.35), 0 6px 20px rgba(0,0,0,0.30)",
       },
     },
   },

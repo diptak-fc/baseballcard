@@ -29,14 +29,14 @@ export default function Shell({
 
   return (
     <div className="min-h-screen">
-      <header className="sticky top-0 z-40 border-b border-surface-line bg-white/95 backdrop-blur">
+      <header className="sticky top-0 z-40 border-b border-surface-line bg-surface/95 backdrop-blur">
         <div className="mx-auto flex h-16 max-w-6xl items-center gap-6 px-4">
           <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-navy-700 text-sm font-bold text-white">
+            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-accent text-sm font-bold text-accent-ink">
               FC
             </div>
             <div className="leading-tight">
-              <div className="text-sm font-bold text-navy-800">Full Circle Agency</div>
+              <div className="text-sm font-bold text-ink">Full Circle Agency</div>
               <div className="text-[11px] text-ink-muted">Client Success Dashboard</div>
             </div>
           </div>
@@ -54,8 +54,8 @@ export default function Shell({
                   className={
                     "rounded-lg px-3 py-1.5 text-sm font-semibold whitespace-nowrap transition-colors " +
                     (active
-                      ? "bg-navy-50 text-navy-700"
-                      : "text-ink-soft hover:bg-surface-alt hover:text-navy-700")
+                      ? "bg-accent/10 text-accent"
+                      : "text-ink-soft hover:bg-surface-alt hover:text-accent")
                   }
                 >
                   {l.label}
@@ -121,7 +121,7 @@ function PasswordDialog({ onClose }: { onClose: () => void }) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-navy-900/40 p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
       onClick={onClose}
     >
       <form
@@ -129,7 +129,7 @@ function PasswordDialog({ onClose }: { onClose: () => void }) {
         onClick={(e) => e.stopPropagation()}
         onSubmit={submit}
       >
-        <h2 className="mb-4 text-lg font-bold text-navy-800">Change password</h2>
+        <h2 className="mb-4 text-lg font-bold text-ink">Change password</h2>
         <label className="label">Current password</label>
         <input
           className="input mb-3"

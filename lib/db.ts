@@ -108,6 +108,9 @@ async function initSchema(sql: Sql) {
       UNIQUE (user_id, year, month)
     )`;
 
+  // Lightweight migrations for databases created by earlier versions.
+  await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS photo TEXT`;
+
   const existing = await sql`SELECT COUNT(*)::int AS n FROM users`;
   if ((existing[0] as { n: number }).n > 0) return;
 

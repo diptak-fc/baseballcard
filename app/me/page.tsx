@@ -12,10 +12,11 @@ import {
   fmtScore,
 } from "@/lib/scoring";
 import { BandChip, ScoreTile, Spinner, EmptyState } from "@/components/ui";
+import { Avatar, PhotoControl } from "@/components/photo";
 import { ScoreBarChart, TrendLineChart } from "@/components/charts";
 
 type Assignment = { id: number; pod: string; kam: string; clients: string[] };
-type Me = { id: number; name: string; title: string };
+type Me = { id: number; name: string; title: string; photo?: string | null };
 type Evaluation = {
   month: number;
   scores: Record<string, number>;
@@ -35,13 +36,18 @@ export default function MyCardPage() {
   const [tab, setTab] = useState<Tab>("monthly");
   const [month, setMonth] = useState(new Date().getMonth() + 1);
 
-  useEffect(() => {
+  function reloadMe() {
     fetch("/api/me")
       .then((r) => r.json())
       .then((d) => {
         setMe(d.user);
         setAssignments(d.assignments || []);
       });
+  }
+
+  useEffect(() => {
+    reloadMe();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -72,17 +78,13 @@ export default function MyCardPage() {
       <section className="card mb-6 p-6">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-4">
-            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-navy-700 text-lg font-bold text-white">
-              {me.name
-                .split(/\s+/)
-                .map((w) => w[0])
-                .slice(0, 2)
-                .join("")
-                .toUpperCase()}
-            </div>
+            <Avatar name={me.name} photo={me.photo} size={56} />
             <div>
-              <h1 className="text-xl font-bold text-navy-800">{me.name}</h1>
+              <h1 className="text-xl font-bold text-ink">{me.name}</h1>
               <div className="text-sm text-ink-muted">{me.title} · Full Circle Agency</div>
+              <div className="mt-1">
+                <PhotoControl hasPhoto={!!me.photo} onChanged={reloadMe} />
+              </div>
             </div>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -91,7 +93,7 @@ export default function MyCardPage() {
                 key={a.id}
                 className="rounded-lg border border-surface-line bg-surface-alt px-2.5 py-1.5 text-xs"
               >
-                <span className="font-bold text-navy-700">{a.pod}</span>
+                <span className="font-bold text-accent">{a.pod}</span>
                 <span className="mx-1.5 text-ink-muted">·</span>
                 <span className="font-semibold text-ink-soft">KAM: {a.kam}</span>
                 <div className="mt-0.5 max-w-[260px] text-ink-muted">
@@ -105,7 +107,7 @@ export default function MyCardPage() {
 
       {/* Tabs + year */}
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex rounded-xl border border-surface-line bg-white p-1">
+        <div className="flex rounded-xl border border-surface-line bg-surface p-1">
           {(
             [
               ["monthly", "Monthly"],
@@ -118,7 +120,7 @@ export default function MyCardPage() {
               onClick={() => setTab(t)}
               className={
                 "rounded-lg px-4 py-1.5 text-sm font-semibold transition-colors " +
-                (tab === t ? "bg-navy-700 text-white" : "text-ink-soft hover:text-navy-700")
+                (tab === t ? "bg-accent text-accent-ink" : "text-ink-soft hover:text-accent")
               }
             >
               {label}
@@ -187,7 +189,7 @@ function MonthlyTab({
       ) : (
         <section className="card p-6">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-            <h2 className="text-lg font-bold text-navy-800">
+            <h2 className="text-lg font-bold text-ink">
               {MONTHS[month - 1]} scorecard
             </h2>
             {avg !== null && band && (
@@ -224,7 +226,7 @@ function QuarterlyTab({ monthly }: { monthly: Map<number, number> }) {
   return (
     <div className="space-y-5">
       <section className="card p-6">
-        <h2 className="mb-1 text-lg font-bold text-navy-800">Quarterly averages</h2>
+        <h2 className="mb-1 text-lg font-bold text-ink">Quarterly averages</h2>
         <p className="mb-4 text-xs text-ink-muted">
           Q1 = Jan–Mar · Q2 = Apr–Jun · Q3 = Jul–Sep · Q4 = Oct–Dec
         </p>
@@ -237,8 +239,8 @@ function QuarterlyTab({ monthly }: { monthly: Map<number, number> }) {
           return (
             <section key={q.name} className="card p-5">
               <div className="flex items-center justify-between">
-                <h3 className="font-bold text-navy-800">{q.name}</h3>
-                <span className="text-lg font-bold text-navy-700">{fmtScore(q.score)}<span className="text-xs font-semibold text-ink-muted">/10</span></span>
+                <h3 className="font-bold text-ink">{q.name}</h3>
+                <span className="text-lg font-bold text-accent">{fmtScore(q.score)}<span className="text-xs font-semibold text-ink-muted">/10</span></span>
               </div>
               <div className="mt-2">
                 {band ? (
@@ -275,10 +277,10 @@ function YearlyTab({ monthly, year }: { monthly: Map<number, number>; year: numb
       <section className="card p-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h2 className="text-lg font-bold text-navy-800">{year} at a glance</h2>
+            <h2 className="text-lg font-bold text-ink">{year} at a glance</h2>
             <p className="mt-1 text-xs text-ink-muted">
               {monthly.size}/12 months published · running average{" "}
-              <span className="font-bold text-navy-700">{fmtScore(annual)}</span>
+              <span className="font-bold text-accent">{fmtScore(annual)}</span>
             </p>
           </div>
           {band && annual !== null && (
@@ -289,7 +291,7 @@ function YearlyTab({ monthly, year }: { monthly: Map<number, number>; year: numb
           <TrendLineChart data={data} />
         </div>
         {!complete && (
-          <p className="mt-4 rounded-lg bg-navy-50 px-3 py-2 text-xs text-navy-700">
+          <p className="mt-4 rounded-lg bg-accent/10 px-3 py-2 text-xs text-accent">
             Your annual performance evaluation will be available at the end of
             the year, once reviews for all twelve months are complete.
           </p>

@@ -10,6 +10,7 @@ import {
   fmtScore,
 } from "@/lib/scoring";
 import { BandChip, StatusChip, Spinner, EmptyState } from "@/components/ui";
+import { Avatar } from "@/components/photo";
 
 type Assignment = { id: number; pod: string; kam: string; clients: string[] };
 type Person = {
@@ -18,6 +19,7 @@ type Person = {
   email: string;
   title: string;
   active: boolean;
+  photo?: string | null;
   assignments: Assignment[];
 };
 type Evaluation = {
@@ -61,7 +63,7 @@ export default function MonthlyScoringPage() {
     <div>
       <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-navy-800">Monthly Scoring</h1>
+          <h1 className="text-2xl font-bold text-ink">Monthly Scoring</h1>
           <p className="mt-1 text-sm text-ink-soft">
             Score each CSM across the six categories, add your feedback, then
             submit to the CEO for approval.
@@ -192,13 +194,11 @@ function EvalCard({
     <section className="card p-6">
       <div className="mb-5 flex flex-wrap items-start justify-between gap-4">
         <div className="flex items-start gap-4">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-navy-100 text-base font-bold text-navy-700">
-            {initials(person.name)}
-          </div>
+          <Avatar name={person.name} photo={person.photo} size={48} />
           <div>
             <div className="flex items-center gap-2">
-              <h2 className="text-lg font-bold text-navy-800">{person.name}</h2>
-              <span className="chip bg-navy-50 text-navy-700">{person.title}</span>
+              <h2 className="text-lg font-bold text-ink">{person.name}</h2>
+              <span className="chip bg-accent/10 text-accent">{person.title}</span>
             </div>
             <div className="mt-1.5 flex flex-wrap gap-2">
               {person.assignments.map((a) => (
@@ -206,7 +206,7 @@ function EvalCard({
                   key={a.id}
                   className="rounded-lg border border-surface-line bg-surface-alt px-2.5 py-1.5 text-xs"
                 >
-                  <span className="font-bold text-navy-700">{a.pod}</span>
+                  <span className="font-bold text-accent">{a.pod}</span>
                   <span className="mx-1.5 text-ink-muted">·</span>
                   <span className="font-semibold text-ink-soft">KAM: {a.kam}</span>
                   <div className="mt-0.5 text-ink-muted">
@@ -306,13 +306,4 @@ function EvalCard({
       )}
     </section>
   );
-}
-
-function initials(name: string) {
-  return name
-    .split(/\s+/)
-    .map((w) => w[0])
-    .slice(0, 2)
-    .join("")
-    .toUpperCase();
 }

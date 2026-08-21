@@ -8,7 +8,7 @@ export async function GET() {
     const session = await requireRole("ADMIN", "CEO", "CSM");
     const sql = await db();
     const users = await sql`
-      SELECT id, email, name, role, title FROM users WHERE id = ${session.uid}`;
+      SELECT id, email, name, role, title, photo FROM users WHERE id = ${session.uid}`;
     const assignments =
       session.role === "CSM"
         ? await sql`SELECT id, pod, kam, clients FROM assignments WHERE user_id = ${session.uid} ORDER BY pod`

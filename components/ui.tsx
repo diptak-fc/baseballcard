@@ -79,7 +79,7 @@ export function EmptyState({ title, hint }: { title: string; hint?: string }) {
 export function Spinner() {
   return (
     <div className="flex items-center justify-center py-16 text-sm text-ink-muted">
-      <span className="mr-2 inline-block h-4 w-4 animate-spin rounded-full border-2 border-navy-200 border-t-navy-600" />
+      <span className="mr-2 inline-block h-4 w-4 animate-spin rounded-full border-2 border-surface-line border-t-accent" />
       Loading…
     </div>
   );
