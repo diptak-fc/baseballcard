@@ -12,6 +12,22 @@ export const CATEGORIES = [
 export type CategoryKey = (typeof CATEGORIES)[number]["key"];
 export type Scores = Record<CategoryKey, number>;
 
+// Two extra KPIs that apply only to the CSM's self-evaluation and the KAM's
+// evaluation of the CSM — the Director's official evaluation (and its
+// banding) stays on the original six categories above.
+export const EXTRA_SELF_KAM_CATEGORIES = [
+  { key: "resultsDriven", label: "Results-Driven" },
+  { key: "projectManagement", label: "Project Management" },
+] as const;
+
+export const SELF_KAM_CATEGORIES = [
+  ...CATEGORIES,
+  ...EXTRA_SELF_KAM_CATEGORIES,
+] as const;
+
+export type SelfKamCategoryKey = (typeof SELF_KAM_CATEGORIES)[number]["key"];
+export type SelfKamScores = Partial<Record<SelfKamCategoryKey, number>>;
+
 export const MONTHS = [
   "January", "February", "March", "April", "May", "June",
   "July", "August", "September", "October", "November", "December",
@@ -28,13 +44,27 @@ export function quarterOfMonth(month: number): string {
   return QUARTERS[Math.floor((month - 1) / 3)].name;
 }
 
-export function average(scores: Partial<Scores> | null | undefined): number | null {
+function averageOver(
+  scores: Record<string, number> | null | undefined,
+  categories: readonly { key: string }[]
+): number | null {
   if (!scores) return null;
-  const vals = CATEGORIES.map((c) => scores[c.key]).filter(
+  const vals = categories.map((c) => scores[c.key]).filter(
     (v): v is number => typeof v === "number" && !Number.isNaN(v)
   );
   if (vals.length === 0) return null;
   return Math.round((vals.reduce((a, b) => a + b, 0) / vals.length) * 10) / 10;
+}
+
+// Director's official evaluation — always the original six categories.
+export function average(scores: Partial<Scores> | null | undefined): number | null {
+  return averageOver(scores, CATEGORIES);
+}
+
+// Self-evaluation and KAM evaluation — the six original categories plus
+// Results-Driven and Project Management.
+export function averageSelfKam(scores: SelfKamScores | null | undefined): number | null {
+  return averageOver(scores, SELF_KAM_CATEGORIES);
 }
 
 export function mean(nums: number[]): number | null {

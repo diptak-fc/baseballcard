@@ -3,11 +3,13 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   CATEGORIES,
+  SELF_KAM_CATEGORIES,
   MONTHS,
   QUARTERS,
   KAM_PARAMS,
   MAX_NOTE_LEN,
   average,
+  averageSelfKam,
   mean,
   bandOf,
   CSM_BAND,
@@ -17,6 +19,7 @@ import { BandChip, ScoreTile, Spinner, EmptyState } from "@/components/ui";
 import { Avatar, PhotoControl } from "@/components/photo";
 import { ScoreBarChart, TrendLineChart } from "@/components/charts";
 import { ScalePicker } from "@/components/kamRating";
+import { usePersistedMonth } from "@/lib/useMonthYear";
 
 type Assignment = { id: number; pod: string; kam: string; kam_user_id: number | null; clients: string[] };
 type Me = { id: number; name: string; title: string; photo?: string | null };
@@ -37,7 +40,7 @@ export default function MyCardPage() {
   const [year, setYear] = useState(THIS_YEAR);
   const [evals, setEvals] = useState<Evaluation[] | null>(null);
   const [tab, setTab] = useState<Tab>("monthly");
-  const [month, setMonth] = useState(new Date().getMonth() + 1);
+  const [month, setMonth] = usePersistedMonth();
 
   function reloadMe() {
     fetch("/api/me")
@@ -151,8 +154,10 @@ export default function MyCardPage() {
       )}
       {tab === "quarterly" && <QuarterlyTab monthly={monthly} />}
       {tab === "yearly" && <YearlyTab monthly={monthly} year={year} />}
-      {tab === "self" && <SelfEvalTab year={year} />}
-      {tab === "kams" && <RateKamsTab year={year} assignments={assignments} />}
+      {tab === "self" && <SelfEvalTab year={year} month={month} setMonth={setMonth} />}
+      {tab === "kams" && (
+        <RateKamsTab year={year} month={month} setMonth={setMonth} assignments={assignments} />
+      )}
     </div>
   );
 }
@@ -314,8 +319,15 @@ type SelfEval = {
   notes: Record<string, string>;
 };
 
-function SelfEvalTab({ year }: { year: number }) {
-  const [month, setMonth] = useState(new Date().getMonth() + 1);
+function SelfEvalTab({
+  year,
+  month,
+  setMonth,
+}: {
+  year: number;
+  month: number;
+  setMonth: (m: number) => void;
+}) {
   const [all, setAll] = useState<SelfEval[] | null>(null);
 
   function load() {
@@ -368,7 +380,7 @@ function SelfEvalForm({
 }) {
   const [scores, setScores] = useState<Record<string, string>>(() => {
     const init: Record<string, string> = {};
-    for (const c of CATEGORIES) {
+    for (const c of SELF_KAM_CATEGORIES) {
       const v = existing?.scores?.[c.key];
       init[c.key] = typeof v === "number" ? String(v) : "";
     }
@@ -376,7 +388,7 @@ function SelfEvalForm({
   });
   const [notes, setNotes] = useState<Record<string, string>>(() => {
     const init: Record<string, string> = {};
-    for (const c of CATEGORIES) init[c.key] = existing?.notes?.[c.key] || "";
+    for (const c of SELF_KAM_CATEGORIES) init[c.key] = existing?.notes?.[c.key] || "";
     return init;
   });
   const [busy, setBusy] = useState(false);
@@ -386,7 +398,7 @@ function SelfEvalForm({
     setBusy(true);
     setMsg(null);
     const numericScores: Record<string, number> = {};
-    for (const c of CATEGORIES) {
+    for (const c of SELF_KAM_CATEGORIES) {
       const v = parseFloat(scores[c.key]);
       if (!Number.isNaN(v)) numericScores[c.key] = v;
     }
@@ -415,7 +427,7 @@ function SelfEvalForm({
       </div>
 
       <div className="space-y-4">
-        {CATEGORIES.map((c) => (
+        {SELF_KAM_CATEGORIES.map((c) => (
           <div key={c.key} className="rounded-xl border border-surface-line bg-surface-alt p-4">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <label className="text-sm font-bold text-ink">{c.label}</label>
@@ -465,9 +477,17 @@ function SelfEvalForm({
   );
 }
 
-function RateKamsTab({ year, assignments }: { year: number; assignments: Assignment[] }) {
-  const [month, setMonth] = useState(new Date().getMonth() + 1);
-
+function RateKamsTab({
+  year,
+  month,
+  setMonth,
+  assignments,
+}: {
+  year: number;
+  month: number;
+  setMonth: (m: number) => void;
+  assignments: Assignment[];
+}) {
   const kams = useMemo(() => {
     const map = new Map<number, string>();
     for (const a of assignments) {

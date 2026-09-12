@@ -3,8 +3,10 @@
 import { useCallback, useEffect, useState } from "react";
 import {
   CATEGORIES,
+  SELF_KAM_CATEGORIES,
   MONTHS,
   average,
+  averageSelfKam,
   bandOf,
   variance,
   ADMIN_BAND,
@@ -87,7 +89,7 @@ export default function CeoPage() {
           </h2>
           <div className="card divide-y divide-surface-line">
             {decided.map((i) => {
-              const avg = average(i.scores as any);
+              const avg = i.kind === "kam" ? averageSelfKam(i.scores as any) : average(i.scores as any);
               return (
                 <div key={`${i.kind}-${i.id}`} className="flex flex-wrap items-center justify-between gap-2 px-5 py-3">
                   <div>
@@ -120,9 +122,10 @@ export default function CeoPage() {
 function ReviewCard({ item, onDecided }: { item: Item; onDecided: () => void }) {
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState<null | "approved" | "denied">(null);
-  const avg = average(item.scores as any);
+  const categories = item.kind === "kam" ? SELF_KAM_CATEGORIES : CATEGORIES;
+  const avg = item.kind === "kam" ? averageSelfKam(item.scores as any) : average(item.scores as any);
   const band = avg !== null ? bandOf(avg) : null;
-  const selfAvg = item.self_scores ? average(item.self_scores as any) : null;
+  const selfAvg = item.self_scores ? averageSelfKam(item.self_scores as any) : null;
 
   async function decide(decision: "approved" | "denied") {
     if (decision === "denied" && !note.trim()) {
@@ -161,8 +164,8 @@ function ReviewCard({ item, onDecided }: { item: Item; onDecided: () => void }) 
         )}
       </div>
 
-      <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
-        {CATEGORIES.map((c) => (
+      <div className={"grid grid-cols-3 gap-2 " + (item.kind === "kam" ? "sm:grid-cols-4 lg:grid-cols-8" : "sm:grid-cols-6")}>
+        {categories.map((c) => (
           <ScoreTile key={c.key} label={c.label} value={item.scores?.[c.key]} />
         ))}
       </div>
@@ -180,8 +183,8 @@ function ReviewCard({ item, onDecided }: { item: Item; onDecided: () => void }) 
           {!item.self_scores ? (
             <p className="text-xs text-ink-muted">No self-evaluation was submitted for this month.</p>
           ) : (
-            <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
-              {CATEGORIES.map((c) => {
+            <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-8">
+              {SELF_KAM_CATEGORIES.map((c) => {
                 const v = variance(item.self_scores?.[c.key], item.scores?.[c.key]);
                 return (
                   <div key={c.key} className="rounded-lg bg-surface px-2 py-1.5 text-center">

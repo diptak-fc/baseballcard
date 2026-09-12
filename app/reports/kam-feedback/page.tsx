@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { MONTHS, QUARTERS, KAM_PARAMS, kamScaleLabel, kamFeedbackScore, mean } from "@/lib/scoring";
 import { Spinner, EmptyState } from "@/components/ui";
+import { usePersistedYear } from "@/lib/useMonthYear";
 
 type Kam = { id: number; name: string; active: boolean };
 type Feedback = {
@@ -19,7 +20,7 @@ const YEARS = [THIS_YEAR - 1, THIS_YEAR, THIS_YEAR + 1];
 export default function KamFeedbackPage() {
   const [kams, setKams] = useState<Kam[] | null>(null);
   const [kamId, setKamId] = useState<number | null>(null);
-  const [year, setYear] = useState(THIS_YEAR);
+  const [year, setYear] = usePersistedYear();
   const [feedback, setFeedback] = useState<Feedback[] | null>(null);
 
   useEffect(() => {

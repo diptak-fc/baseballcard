@@ -15,11 +15,23 @@ team.
   quarterly averages, yearly view), scores themselves every month with
   optional notes, and rates the KAM(s) they work with.
 - **KAM (Key Account Manager)** — signs in to score the CSM(s) assigned to
-  them each month, using the same six categories as the Director.
+  them each month, using the same categories as the CSM's self-evaluation.
 
 Built with Next.js, hosted on Vercel, data stored in Neon Postgres. The
 database tables create and seed themselves on first run — **no terminal
 commands are ever needed.**
+
+### Latest update
+
+- **Fixed:** picking a month or year on one screen and switching to another
+  tab no longer silently snaps back to today's calendar month/year — the
+  selection is now remembered across every tab and page until you change it
+  again.
+- **Added:** two new KPIs — **Results-Driven** and **Project Management** —
+  scored 0–10 on both the CSM's self-evaluation and the KAM's evaluation of
+  that CSM. The Director's official evaluation (the one banding/PIP/bonus
+  decisions are based on) is unchanged and still uses the original six
+  categories.
 
 ---
 
@@ -144,21 +156,26 @@ for banding, PIPs, bonuses, and promotion decisions.
 ### 2. The CSM's self-evaluation
 
 Under **My Self-Evaluation** on their own dashboard, each CSM can score
-themselves 0–10 on the same six categories every month, and — for each
-category — write up to 500 characters explaining why they gave themselves
-that score. There's no submit/approval step here: a CSM can save or revise
-their self-evaluation at any time, and it's visible to the Director and CEO
-right away for comparison. It never changes the official score.
+themselves 0–10 on eight categories every month — the Director's original
+six (Ownership, Communication, Team Player, AI Adoption, POD Management,
+Client Sentiment) plus two more that apply only to self- and KAM-evaluations:
+**Results-Driven** and **Project Management** — and, for each category,
+write up to 500 characters explaining why they gave themselves that score.
+There's no submit/approval step here: a CSM can save or revise their
+self-evaluation at any time, and it's visible to the Director and CEO right
+away for comparison. It never changes the official score.
 
 ### 3. The KAM's evaluation of the CSM
 
 Each KAM signs in and, under **Score My CSMs**, scores every CSM assigned to
-them 0–10 on the same six categories the Director uses (no written feedback
-field). A KAM's evaluation goes through the **same submit → CEO approve/deny
-queue** as the Director's, but it's clearly tagged as "Scored by KAM: [name]"
-so it's never confused with the official Director score. If a CSM has more
-than one KAM (because they cover more than one POD), each KAM scores them
-separately and both scores show up in the comparison.
+them 0–10 on the same eight categories the CSM scores themselves on
+(the Director's six, plus Results-Driven and Project Management — no written
+feedback field). A KAM's evaluation goes through the **same submit → CEO
+approve/deny queue** as the Director's, but it's clearly tagged as "Scored by
+KAM: [name]" so it's never confused with the official Director score, which
+stays on the original six categories. If a CSM has more than one KAM
+(because they cover more than one POD), each KAM scores them separately and
+both scores show up in the comparison.
 
 ### 4. The CSM's rating of their KAM(s) — confidential upward feedback
 

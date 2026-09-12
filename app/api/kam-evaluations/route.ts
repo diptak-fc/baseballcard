@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requireRole, errorResponse } from "@/lib/auth";
-import { CATEGORIES } from "@/lib/scoring";
+import { SELF_KAM_CATEGORIES } from "@/lib/scoring";
 
 // GET KAM evaluations of CSMs.
 //   KAM:        ?year=&month=   → this KAM's scores of their own CSMs that month
@@ -55,7 +55,7 @@ export async function POST(req: NextRequest) {
     }
 
     const cleanScores: Record<string, number> = {};
-    for (const c of CATEGORIES) {
+    for (const c of SELF_KAM_CATEGORIES) {
       const v = scores?.[c.key];
       if (v !== undefined && v !== null && v !== "") {
         const n = Number(v);
@@ -76,7 +76,7 @@ export async function POST(req: NextRequest) {
 
     const submitting = action === "submit";
     if (submitting) {
-      const missing = CATEGORIES.filter((c) => cleanScores[c.key] === undefined);
+      const missing = SELF_KAM_CATEGORIES.filter((c) => cleanScores[c.key] === undefined);
       if (missing.length > 0) {
         return NextResponse.json(
           { error: `Fill in every score before submitting (missing: ${missing.map((m) => m.label).join(", ")})` },

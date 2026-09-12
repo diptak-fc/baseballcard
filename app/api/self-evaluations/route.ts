@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requireRole, errorResponse } from "@/lib/auth";
-import { CATEGORIES, MAX_NOTE_LEN } from "@/lib/scoring";
+import { SELF_KAM_CATEGORIES, MAX_NOTE_LEN } from "@/lib/scoring";
 
 // GET a CSM's self-evaluations.
 //   CSM: always their own.
@@ -41,7 +41,7 @@ export async function POST(req: NextRequest) {
     }
 
     const cleanScores: Record<string, number> = {};
-    for (const c of CATEGORIES) {
+    for (const c of SELF_KAM_CATEGORIES) {
       const v = scores?.[c.key];
       if (v !== undefined && v !== null && v !== "") {
         const n = Number(v);
@@ -53,7 +53,7 @@ export async function POST(req: NextRequest) {
     }
 
     const cleanNotes: Record<string, string> = {};
-    for (const c of CATEGORIES) {
+    for (const c of SELF_KAM_CATEGORIES) {
       const n = notes?.[c.key];
       if (typeof n === "string" && n.trim()) {
         if (n.length > MAX_NOTE_LEN) {

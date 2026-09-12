@@ -14,6 +14,7 @@ import {
 } from "@/lib/scoring";
 import { BandChip, StatusChip, Spinner, EmptyState } from "@/components/ui";
 import { ScoreBarChart, TrendLineChart } from "@/components/charts";
+import { usePersistedYear } from "@/lib/useMonthYear";
 
 type Person = { id: number; name: string; title: string; active: boolean };
 type Evaluation = {
@@ -31,7 +32,7 @@ const YEARS = [THIS_YEAR - 1, THIS_YEAR, THIS_YEAR + 1];
 export default function InsightsPage() {
   const [people, setPeople] = useState<Person[] | null>(null);
   const [userId, setUserId] = useState<number | null>(null);
-  const [year, setYear] = useState(THIS_YEAR);
+  const [year, setYear] = usePersistedYear();
   const [evals, setEvals] = useState<Evaluation[] | null>(null);
 
   useEffect(() => {

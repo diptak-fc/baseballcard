@@ -1,9 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { CATEGORIES, MONTHS, average, bandOf, ADMIN_BAND, fmtScore } from "@/lib/scoring";
+import { SELF_KAM_CATEGORIES, MONTHS, averageSelfKam, bandOf, ADMIN_BAND, fmtScore } from "@/lib/scoring";
 import { BandChip, StatusChip, Spinner, EmptyState } from "@/components/ui";
 import { Avatar } from "@/components/photo";
+import { usePersistedMonth, usePersistedYear } from "@/lib/useMonthYear";
 
 type Assignment = { id: number; pod: string; clients: string[] };
 type Csm = {
@@ -25,9 +26,8 @@ const THIS_YEAR = new Date().getFullYear();
 const YEARS = [THIS_YEAR - 1, THIS_YEAR, THIS_YEAR + 1];
 
 export default function KamScoringPage() {
-  const now = new Date();
-  const [year, setYear] = useState(now.getFullYear());
-  const [month, setMonth] = useState(now.getMonth() + 1);
+  const [year, setYear] = usePersistedYear();
+  const [month, setMonth] = usePersistedMonth();
   const [csms, setCsms] = useState<Csm[] | null>(null);
   const [evals, setEvals] = useState<Map<number, KamEval>>(new Map());
   const [loading, setLoading] = useState(true);
@@ -55,9 +55,10 @@ export default function KamScoringPage() {
         <div>
           <h1 className="text-2xl font-bold text-ink">Score My CSMs</h1>
           <p className="mt-1 text-sm text-ink-soft">
-            Score each CSM you work with, across the same six categories the
-            Director uses. Your score is submitted to the CEO for approval and
-            compared against the CSM&rsquo;s own self-evaluation.
+            Score each CSM you work with, across the same categories the
+            Director uses plus Results-Driven and Project Management. Your
+            score is submitted to the CEO for approval and compared against
+            the CSM&rsquo;s own self-evaluation.
           </p>
         </div>
         <div className="flex gap-2">
@@ -120,7 +121,7 @@ function KamEvalCard({
 }) {
   const [scores, setScores] = useState<Record<string, string>>(() => {
     const init: Record<string, string> = {};
-    for (const c of CATEGORIES) {
+    for (const c of SELF_KAM_CATEGORIES) {
       const v = existing?.scores?.[c.key];
       init[c.key] = typeof v === "number" ? String(v) : "";
     }
@@ -134,14 +135,14 @@ function KamEvalCard({
 
   const numericScores = useMemo(() => {
     const out: Record<string, number> = {};
-    for (const c of CATEGORIES) {
+    for (const c of SELF_KAM_CATEGORIES) {
       const v = parseFloat(scores[c.key]);
       if (!Number.isNaN(v)) out[c.key] = v;
     }
     return out;
   }, [scores]);
 
-  const avg = average(numericScores as any);
+  const avg = averageSelfKam(numericScores as any);
   const band = avg !== null ? bandOf(avg) : null;
 
   async function save(action: "save" | "submit") {
@@ -194,8 +195,8 @@ function KamEvalCard({
         </p>
       )}
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-        {CATEGORIES.map((c) => (
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-8">
+        {SELF_KAM_CATEGORIES.map((c) => (
           <div key={c.key}>
             <label className="label">{c.label}</label>
             <input
@@ -220,7 +221,7 @@ function KamEvalCard({
             ? "Approved by the CEO — this evaluation is locked."
             : status === "submitted"
             ? "Awaiting CEO review. Saving again will pull it back to draft."
-            : "Scores are out of 10. Submit when all six categories are scored."}
+            : "Scores are out of 10. Submit when every category is scored."}
         </div>
         {!locked && (
           <div className="flex gap-2">

@@ -4,8 +4,9 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   MONTHS,
   QUARTERS,
-  CATEGORIES,
+  SELF_KAM_CATEGORIES,
   average,
+  averageSelfKam,
   mean,
   variance,
   bandOf,
@@ -14,6 +15,7 @@ import {
 } from "@/lib/scoring";
 import { BandChip, Spinner, EmptyState } from "@/components/ui";
 import { ScoreBarChart } from "@/components/charts";
+import { usePersistedYear } from "@/lib/useMonthYear";
 
 type Person = { id: number; name: string; title: string; active: boolean };
 type DirectorEval = { month: number; scores: Record<string, number>; status: string };
@@ -31,7 +33,7 @@ const YEARS = [THIS_YEAR - 1, THIS_YEAR, THIS_YEAR + 1];
 export default function ComparativeAnalysisPage() {
   const [people, setPeople] = useState<Person[] | null>(null);
   const [userId, setUserId] = useState<number | null>(null);
-  const [year, setYear] = useState(THIS_YEAR);
+  const [year, setYear] = usePersistedYear();
   const [directorEvals, setDirectorEvals] = useState<DirectorEval[] | null>(null);
   const [selfEvals, setSelfEvals] = useState<SelfEval[] | null>(null);
   const [kamEvals, setKamEvals] = useState<KamEval[] | null>(null);
@@ -141,8 +143,8 @@ function ComparisonBody({
       const kams = kamEvals.filter((e) => e.month === month);
 
       const directorAvg = d ? average(d.scores as any) : null;
-      const selfAvg = s ? average(s.scores as any) : null;
-      const kamAvgs = kams.map((k) => ({ name: k.kam_name, avg: average(k.scores as any), status: k.status }));
+      const selfAvg = s ? averageSelfKam(s.scores as any) : null;
+      const kamAvgs = kams.map((k) => ({ name: k.kam_name, avg: averageSelfKam(k.scores as any), status: k.status }));
       const kamCombined = mean(kamAvgs.map((k) => k.avg).filter((v): v is number => v !== null));
 
       return { month, directorAvg, selfAvg, kamAvgs, kamCombined };
@@ -283,7 +285,7 @@ function SelfEvalNotes({ selfEvals }: { selfEvals: SelfEval[] }) {
           <div key={e.month} className="rounded-xl border border-surface-line bg-surface-alt p-4">
             <div className="mb-2 font-bold text-ink">{MONTHS[e.month - 1]}</div>
             <div className="space-y-2">
-              {CATEGORIES.map((c) => {
+              {SELF_KAM_CATEGORIES.map((c) => {
                 const note = e.notes?.[c.key];
                 if (!note) return null;
                 return (

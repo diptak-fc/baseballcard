@@ -11,6 +11,7 @@ import {
 } from "@/lib/scoring";
 import { BandChip, StatusChip, Spinner, EmptyState } from "@/components/ui";
 import { Avatar } from "@/components/photo";
+import { usePersistedMonth, usePersistedYear } from "@/lib/useMonthYear";
 
 type Assignment = { id: number; pod: string; kam: string; clients: string[] };
 type Person = {
@@ -35,9 +36,8 @@ const THIS_YEAR = new Date().getFullYear();
 const YEARS = [THIS_YEAR - 1, THIS_YEAR, THIS_YEAR + 1];
 
 export default function MonthlyScoringPage() {
-  const now = new Date();
-  const [year, setYear] = useState(now.getFullYear());
-  const [month, setMonth] = useState(now.getMonth() + 1);
+  const [year, setYear] = usePersistedYear();
+  const [month, setMonth] = usePersistedMonth();
   const [people, setPeople] = useState<Person[] | null>(null);
   const [evals, setEvals] = useState<Map<number, Evaluation>>(new Map());
   const [loading, setLoading] = useState(true);
