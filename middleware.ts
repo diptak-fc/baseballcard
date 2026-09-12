@@ -5,6 +5,8 @@ const PROTECTED: { prefix: string; roles: string[] }[] = [
   { prefix: "/admin", roles: ["ADMIN"] },
   { prefix: "/ceo", roles: ["CEO"] },
   { prefix: "/me", roles: ["CSM"] },
+  { prefix: "/kam", roles: ["KAM"] },
+  { prefix: "/reports", roles: ["ADMIN", "CEO"] },
 ];
 
 export async function middleware(req: NextRequest) {
@@ -31,5 +33,5 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/admin/:path*", "/ceo/:path*", "/me/:path*"],
+  matcher: ["/admin/:path*", "/ceo/:path*", "/me/:path*", "/kam/:path*", "/reports/:path*"],
 };

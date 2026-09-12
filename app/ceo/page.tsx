@@ -6,19 +6,26 @@ import {
   MONTHS,
   average,
   bandOf,
+  variance,
   ADMIN_BAND,
   fmtScore,
 } from "@/lib/scoring";
 import { BandChip, StatusChip, ScoreTile, Spinner, EmptyState } from "@/components/ui";
 import { Avatar } from "@/components/photo";
 
+type Kind = "director" | "kam";
+
 type Item = {
+  kind: Kind;
   id: number;
-  user_id: number;
+  csm_user_id: number;
+  kam_user_id?: number;
+  kam_name?: string;
   year: number;
   month: number;
   scores: Record<string, number>;
-  feedback: string;
+  feedback?: string;
+  self_scores?: Record<string, number> | null;
   status: string;
   ceo_note: string;
   submitted_at: string | null;
@@ -50,8 +57,10 @@ export default function CeoPage() {
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-ink">CEO Review</h1>
         <p className="mt-1 text-sm text-ink-soft">
-          Evaluations submitted by the Director of Client Success. Approve to
-          publish the result to the CSM, or deny to send it back with a note.
+          One queue for both the Director&rsquo;s official monthly evaluation and
+          each KAM&rsquo;s score of their CSM. Approve to publish, or deny to send
+          it back with a note. KAM submissions show the CSM&rsquo;s own
+          self-evaluation alongside for comparison.
         </p>
       </div>
 
@@ -61,12 +70,12 @@ export default function CeoPage() {
       {pending.length === 0 ? (
         <EmptyState
           title="Nothing waiting for approval"
-          hint="When the Director submits a monthly evaluation, it will appear here."
+          hint="When the Director or a KAM submits a monthly evaluation, it will appear here."
         />
       ) : (
         <div className="space-y-4">
           {pending.map((i) => (
-            <ReviewCard key={i.id} item={i} onDecided={load} />
+            <ReviewCard key={`${i.kind}-${i.id}`} item={i} onDecided={load} />
           ))}
         </div>
       )}
@@ -80,9 +89,12 @@ export default function CeoPage() {
             {decided.map((i) => {
               const avg = average(i.scores as any);
               return (
-                <div key={i.id} className="flex flex-wrap items-center justify-between gap-2 px-5 py-3">
+                <div key={`${i.kind}-${i.id}`} className="flex flex-wrap items-center justify-between gap-2 px-5 py-3">
                   <div>
                     <span className="font-semibold">{i.name}</span>
+                    <span className="chip ml-2 bg-surface-raise text-ink-soft">
+                      {i.kind === "kam" ? `KAM: ${i.kam_name}` : "Director"}
+                    </span>
                     <span className="mx-2 text-ink-muted">·</span>
                     <span className="text-sm text-ink-soft">
                       {MONTHS[i.month - 1]} {i.year}
@@ -110,17 +122,18 @@ function ReviewCard({ item, onDecided }: { item: Item; onDecided: () => void }) 
   const [busy, setBusy] = useState<null | "approved" | "denied">(null);
   const avg = average(item.scores as any);
   const band = avg !== null ? bandOf(avg) : null;
+  const selfAvg = item.self_scores ? average(item.self_scores as any) : null;
 
   async function decide(decision: "approved" | "denied") {
     if (decision === "denied" && !note.trim()) {
-      alert("Please add a note explaining why you are denying, so the Director can revise it.");
+      alert("Please add a note explaining why you are denying, so it can be revised.");
       return;
     }
     setBusy(decision);
     await fetch("/api/approvals", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: item.id, decision, note }),
+      body: JSON.stringify({ kind: item.kind, id: item.id, decision, note }),
     });
     setBusy(null);
     onDecided();
@@ -136,7 +149,10 @@ function ReviewCard({ item, onDecided }: { item: Item; onDecided: () => void }) 
               {item.name} <span className="text-sm font-semibold text-ink-muted">({item.title})</span>
             </h3>
             <div className="text-sm text-ink-soft">
-              {MONTHS[item.month - 1]} {item.year}
+              {MONTHS[item.month - 1]} {item.year} ·{" "}
+              <span className="font-semibold text-accent">
+                {item.kind === "kam" ? `Scored by KAM: ${item.kam_name}` : "Director's official score"}
+              </span>
             </div>
           </div>
         </div>
@@ -151,6 +167,42 @@ function ReviewCard({ item, onDecided }: { item: Item; onDecided: () => void }) 
         ))}
       </div>
 
+      {item.kind === "kam" && (
+        <div className="mt-4 rounded-xl border border-surface-line bg-surface-alt p-4">
+          <div className="mb-2 flex items-center justify-between">
+            <span className="text-xs font-bold uppercase tracking-wide text-ink-muted">
+              {item.name}&rsquo;s self-evaluation, for comparison
+            </span>
+            {selfAvg !== null && (
+              <span className="text-sm font-bold text-accent">{fmtScore(selfAvg)}/10 self-scored</span>
+            )}
+          </div>
+          {!item.self_scores ? (
+            <p className="text-xs text-ink-muted">No self-evaluation was submitted for this month.</p>
+          ) : (
+            <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
+              {CATEGORIES.map((c) => {
+                const v = variance(item.self_scores?.[c.key], item.scores?.[c.key]);
+                return (
+                  <div key={c.key} className="rounded-lg bg-surface px-2 py-1.5 text-center">
+                    <div className="text-[10px] font-semibold uppercase text-ink-muted">{c.label}</div>
+                    <div className="text-sm font-bold text-ink">
+                      {fmtScore(item.self_scores?.[c.key])}
+                    </div>
+                    {v !== null && v !== 0 && (
+                      <div className={"text-[10px] font-bold " + (v > 0 ? "text-band-good" : "text-band-critical")}>
+                        {v > 0 ? "+" : ""}
+                        {v} vs. KAM
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
       {item.feedback && (
         <div className="mt-4 rounded-lg bg-surface-alt px-3 py-2 text-sm text-ink-soft">
           <span className="font-semibold text-ink">Director&rsquo;s feedback:</span> {item.feedback}
@@ -158,7 +210,7 @@ function ReviewCard({ item, onDecided }: { item: Item; onDecided: () => void }) 
       )}
 
       <div className="mt-4">
-        <label className="label">Note to the Director (required when denying)</label>
+        <label className="label">Note (required when denying)</label>
         <input
           className="input"
           placeholder="Optional note…"

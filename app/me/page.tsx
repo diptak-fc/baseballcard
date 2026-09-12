@@ -5,6 +5,8 @@ import {
   CATEGORIES,
   MONTHS,
   QUARTERS,
+  KAM_PARAMS,
+  MAX_NOTE_LEN,
   average,
   mean,
   bandOf,
@@ -14,8 +16,9 @@ import {
 import { BandChip, ScoreTile, Spinner, EmptyState } from "@/components/ui";
 import { Avatar, PhotoControl } from "@/components/photo";
 import { ScoreBarChart, TrendLineChart } from "@/components/charts";
+import { ScalePicker } from "@/components/kamRating";
 
-type Assignment = { id: number; pod: string; kam: string; clients: string[] };
+type Assignment = { id: number; pod: string; kam: string; kam_user_id: number | null; clients: string[] };
 type Me = { id: number; name: string; title: string; photo?: string | null };
 type Evaluation = {
   month: number;
@@ -26,7 +29,7 @@ type Evaluation = {
 const THIS_YEAR = new Date().getFullYear();
 const YEARS = [THIS_YEAR - 1, THIS_YEAR];
 
-type Tab = "monthly" | "quarterly" | "yearly";
+type Tab = "monthly" | "quarterly" | "yearly" | "self" | "kams";
 
 export default function MyCardPage() {
   const [me, setMe] = useState<Me | null>(null);
@@ -107,12 +110,14 @@ export default function MyCardPage() {
 
       {/* Tabs + year */}
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex rounded-xl border border-surface-line bg-surface p-1">
+        <div className="flex flex-wrap rounded-xl border border-surface-line bg-surface p-1">
           {(
             [
               ["monthly", "Monthly"],
               ["quarterly", "Quarterly"],
               ["yearly", "Yearly"],
+              ["self", "My Self-Evaluation"],
+              ["kams", "Rate My KAM(s)"],
             ] as [Tab, string][]
           ).map(([t, label]) => (
             <button
@@ -146,6 +151,8 @@ export default function MyCardPage() {
       )}
       {tab === "quarterly" && <QuarterlyTab monthly={monthly} />}
       {tab === "yearly" && <YearlyTab monthly={monthly} year={year} />}
+      {tab === "self" && <SelfEvalTab year={year} />}
+      {tab === "kams" && <RateKamsTab year={year} assignments={assignments} />}
     </div>
   );
 }
@@ -298,5 +305,292 @@ function YearlyTab({ monthly, year }: { monthly: Map<number, number>; year: numb
         )}
       </section>
     </div>
+  );
+}
+
+type SelfEval = {
+  month: number;
+  scores: Record<string, number>;
+  notes: Record<string, string>;
+};
+
+function SelfEvalTab({ year }: { year: number }) {
+  const [month, setMonth] = useState(new Date().getMonth() + 1);
+  const [all, setAll] = useState<SelfEval[] | null>(null);
+
+  function load() {
+    setAll(null);
+    fetch(`/api/self-evaluations?year=${year}`)
+      .then((r) => r.json())
+      .then((d) => setAll(d.evaluations || []));
+  }
+
+  useEffect(load, [year]);
+
+  const existing = all?.find((e) => e.month === month);
+
+  return (
+    <div className="space-y-5">
+      <div className="flex items-center gap-3">
+        <label className="text-sm font-semibold text-ink-soft">Month</label>
+        <select className="input !w-44" value={month} onChange={(e) => setMonth(Number(e.target.value))}>
+          {MONTHS.map((m, i) => (
+            <option key={m} value={i + 1}>{m}</option>
+          ))}
+        </select>
+      </div>
+
+      {!all ? (
+        <Spinner />
+      ) : (
+        <SelfEvalForm
+          key={`${year}-${month}`}
+          year={year}
+          month={month}
+          existing={existing}
+          onSaved={load}
+        />
+      )}
+    </div>
+  );
+}
+
+function SelfEvalForm({
+  year,
+  month,
+  existing,
+  onSaved,
+}: {
+  year: number;
+  month: number;
+  existing?: SelfEval;
+  onSaved: () => void;
+}) {
+  const [scores, setScores] = useState<Record<string, string>>(() => {
+    const init: Record<string, string> = {};
+    for (const c of CATEGORIES) {
+      const v = existing?.scores?.[c.key];
+      init[c.key] = typeof v === "number" ? String(v) : "";
+    }
+    return init;
+  });
+  const [notes, setNotes] = useState<Record<string, string>>(() => {
+    const init: Record<string, string> = {};
+    for (const c of CATEGORIES) init[c.key] = existing?.notes?.[c.key] || "";
+    return init;
+  });
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+
+  async function save() {
+    setBusy(true);
+    setMsg(null);
+    const numericScores: Record<string, number> = {};
+    for (const c of CATEGORIES) {
+      const v = parseFloat(scores[c.key]);
+      if (!Number.isNaN(v)) numericScores[c.key] = v;
+    }
+    const res = await fetch("/api/self-evaluations", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ year, month, scores: numericScores, notes }),
+    });
+    const data = await res.json();
+    setBusy(false);
+    if (!res.ok) {
+      setMsg({ ok: false, text: data.error || "Could not save" });
+      return;
+    }
+    setMsg({ ok: true, text: "Your self-evaluation was saved." });
+    onSaved();
+  }
+
+  return (
+    <section className="card p-6">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <h2 className="text-lg font-bold text-ink">{MONTHS[month - 1]} self-evaluation</h2>
+        <span className="text-xs text-ink-muted">
+          Visible only to the Director of Client Success and CEO, for comparison.
+        </span>
+      </div>
+
+      <div className="space-y-4">
+        {CATEGORIES.map((c) => (
+          <div key={c.key} className="rounded-xl border border-surface-line bg-surface-alt p-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <label className="text-sm font-bold text-ink">{c.label}</label>
+              <input
+                className="input !w-24 text-center font-bold"
+                type="number"
+                min={0}
+                max={10}
+                step={0.5}
+                inputMode="decimal"
+                placeholder="0–10"
+                value={scores[c.key]}
+                onChange={(e) => setScores((s) => ({ ...s, [c.key]: e.target.value }))}
+              />
+            </div>
+            <textarea
+              className="input mt-2 min-h-[60px]"
+              placeholder="Optional — why do you feel you should get this score? (max 500 characters)"
+              maxLength={MAX_NOTE_LEN}
+              value={notes[c.key]}
+              onChange={(e) => setNotes((n) => ({ ...n, [c.key]: e.target.value }))}
+            />
+            <div className="mt-1 text-right text-[11px] text-ink-muted">
+              {notes[c.key]?.length || 0}/{MAX_NOTE_LEN}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="mt-4 flex justify-end">
+        <button className="btn-primary" disabled={busy} onClick={save}>
+          {busy ? "Saving…" : "Save self-evaluation"}
+        </button>
+      </div>
+
+      {msg && (
+        <p
+          className={
+            "mt-3 rounded-lg px-3 py-2 text-sm " +
+            (msg.ok ? "bg-band-goodBg text-band-good" : "bg-band-criticalBg text-band-critical")
+          }
+        >
+          {msg.text}
+        </p>
+      )}
+    </section>
+  );
+}
+
+function RateKamsTab({ year, assignments }: { year: number; assignments: Assignment[] }) {
+  const [month, setMonth] = useState(new Date().getMonth() + 1);
+
+  const kams = useMemo(() => {
+    const map = new Map<number, string>();
+    for (const a of assignments) {
+      if (a.kam_user_id) map.set(a.kam_user_id, a.kam);
+    }
+    return Array.from(map.entries()).map(([id, name]) => ({ id, name }));
+  }, [assignments]);
+
+  return (
+    <div className="space-y-5">
+      <div className="flex items-center gap-3">
+        <label className="text-sm font-semibold text-ink-soft">Month</label>
+        <select className="input !w-44" value={month} onChange={(e) => setMonth(Number(e.target.value))}>
+          {MONTHS.map((m, i) => (
+            <option key={m} value={i + 1}>{m}</option>
+          ))}
+        </select>
+      </div>
+
+      {kams.length === 0 ? (
+        <EmptyState
+          title="No KAM is linked to your assignments yet"
+          hint="Ask the Director of Client Success to check your POD assignment."
+        />
+      ) : (
+        <div className="space-y-5">
+          {kams.map((k) => (
+            <KamFeedbackCard key={k.id} kamId={k.id} kamName={k.name} year={year} month={month} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function KamFeedbackCard({
+  kamId,
+  kamName,
+  year,
+  month,
+}: {
+  kamId: number;
+  kamName: string;
+  year: number;
+  month: number;
+}) {
+  const [scores, setScores] = useState<Record<string, number>>({});
+  const [loaded, setLoaded] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+
+  useEffect(() => {
+    setLoaded(false);
+    setMsg(null);
+    fetch(`/api/kam-feedback?year=${year}`)
+      .then((r) => r.json())
+      .then((d) => {
+        const match = (d.feedback || []).find(
+          (f: any) => f.kam_user_id === kamId && f.month === month
+        );
+        setScores(match?.scores || {});
+        setLoaded(true);
+      });
+  }, [kamId, year, month]);
+
+  const complete = KAM_PARAMS.every((p) => typeof scores[p.key] === "number");
+
+  async function save() {
+    setBusy(true);
+    setMsg(null);
+    const res = await fetch("/api/kam-feedback", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ kamUserId: kamId, year, month, scores }),
+    });
+    const data = await res.json();
+    setBusy(false);
+    if (!res.ok) {
+      setMsg({ ok: false, text: data.error || "Could not save" });
+      return;
+    }
+    setMsg({ ok: true, text: "Saved. This is visible only to the Director and CEO." });
+  }
+
+  if (!loaded) return <div className="card p-6"><Spinner /></div>;
+
+  return (
+    <section className="card p-6">
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <h2 className="text-lg font-bold text-ink">Rate {kamName}</h2>
+        <span className="text-xs text-ink-muted">{MONTHS[month - 1]} {year}</span>
+      </div>
+      <div className="space-y-4">
+        {KAM_PARAMS.map((p) => (
+          <div key={p.key} className="flex flex-wrap items-center justify-between gap-3">
+            <span className="text-sm font-semibold text-ink-soft">{p.label}</span>
+            <ScalePicker
+              paramKey={p.key}
+              value={scores[p.key]}
+              onChange={(v) => setScores((s) => ({ ...s, [p.key]: v }))}
+            />
+          </div>
+        ))}
+      </div>
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+        <span className="text-xs text-ink-muted">
+          No comments needed — just your rating. {kamName} will never see this; only the
+          Director of Client Success and CEO can.
+        </span>
+        <button className="btn-primary" disabled={busy || !complete} onClick={save}>
+          {busy ? "Saving…" : "Save rating"}
+        </button>
+      </div>
+      {msg && (
+        <p
+          className={
+            "mt-3 rounded-lg px-3 py-2 text-sm " +
+            (msg.ok ? "bg-band-goodBg text-band-good" : "bg-band-criticalBg text-band-critical")
+          }
+        >
+          {msg.text}
+        </p>
+      )}
+    </section>
   );
 }

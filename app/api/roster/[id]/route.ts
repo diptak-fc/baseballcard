@@ -3,7 +3,7 @@ import bcrypt from "bcryptjs";
 import { db, DEFAULT_PASSWORD } from "@/lib/db";
 import { requireRole, errorResponse } from "@/lib/auth";
 
-// PATCH: edit a CSM's details / reset password / deactivate (Admin)
+// PATCH: edit a CSM's or KAM's details / reset password / deactivate (Admin)
 export async function PATCH(
   req: NextRequest,
   { params }: { params: { id: string } }
@@ -14,14 +14,17 @@ export async function PATCH(
     const body = await req.json();
     const sql = await db();
 
-    if (body.name !== undefined)
-      await sql`UPDATE users SET name = ${body.name} WHERE id = ${id} AND role = 'CSM'`;
+    if (body.name !== undefined) {
+      await sql`UPDATE users SET name = ${body.name} WHERE id = ${id} AND role IN ('CSM','KAM')`;
+      // Keep the denormalised assignment.kam text in sync for KAMs.
+      await sql`UPDATE assignments SET kam = ${body.name} WHERE kam_user_id = ${id}`;
+    }
     if (body.email !== undefined)
-      await sql`UPDATE users SET email = ${String(body.email).toLowerCase()} WHERE id = ${id} AND role = 'CSM'`;
+      await sql`UPDATE users SET email = ${String(body.email).toLowerCase()} WHERE id = ${id} AND role IN ('CSM','KAM')`;
     if (body.title !== undefined)
-      await sql`UPDATE users SET title = ${body.title} WHERE id = ${id} AND role = 'CSM'`;
+      await sql`UPDATE users SET title = ${body.title} WHERE id = ${id} AND role IN ('CSM','KAM')`;
     if (body.active !== undefined)
-      await sql`UPDATE users SET active = ${!!body.active} WHERE id = ${id} AND role = 'CSM'`;
+      await sql`UPDATE users SET active = ${!!body.active} WHERE id = ${id} AND role IN ('CSM','KAM')`;
 
     let resetTo: string | undefined;
     if (body.resetPassword) {
@@ -29,7 +32,7 @@ export async function PATCH(
         typeof body.resetPassword === "string" ? body.resetPassword : DEFAULT_PASSWORD;
       resetTo = pw;
       const hash = await bcrypt.hash(pw, 10);
-      await sql`UPDATE users SET password_hash = ${hash} WHERE id = ${id} AND role = 'CSM'`;
+      await sql`UPDATE users SET password_hash = ${hash} WHERE id = ${id} AND role IN ('CSM','KAM')`;
     }
     return NextResponse.json({ ok: true, resetTo });
   } catch (e: any) {
@@ -40,7 +43,7 @@ export async function PATCH(
   }
 }
 
-// DELETE: remove a CSM entirely, including their evaluations (Admin)
+// DELETE: remove a CSM or KAM entirely, including their records (Admin)
 export async function DELETE(
   _req: NextRequest,
   { params }: { params: { id: string } }
@@ -48,7 +51,7 @@ export async function DELETE(
   try {
     await requireRole("ADMIN");
     const sql = await db();
-    await sql`DELETE FROM users WHERE id = ${Number(params.id)} AND role = 'CSM'`;
+    await sql`DELETE FROM users WHERE id = ${Number(params.id)} AND role IN ('CSM','KAM')`;
     return NextResponse.json({ ok: true });
   } catch (e) {
     return errorResponse(e);

@@ -1,5 +1,6 @@
 import Shell from "@/components/Shell";
 import { getSession } from "@/lib/auth";
+import { navLinksFor } from "@/lib/nav";
 
 export default async function AdminLayout({
   children,
@@ -11,11 +12,7 @@ export default async function AdminLayout({
     <Shell
       name={session?.name || "Director"}
       roleLabel="Director of Client Success"
-      links={[
-        { href: "/admin", label: "Monthly Scoring" },
-        { href: "/admin/insights", label: "Performance Insights" },
-        { href: "/admin/roster", label: "Roster" },
-      ]}
+      links={navLinksFor("ADMIN")}
     >
       {children}
     </Shell>

@@ -6,7 +6,7 @@ import { requireRole, errorResponse } from "@/lib/auth";
 // Change your own password (any signed-in role).
 export async function POST(req: NextRequest) {
   try {
-    const session = await requireRole("ADMIN", "CEO", "CSM");
+    const session = await requireRole("ADMIN", "CEO", "CSM", "KAM");
     const { currentPassword, newPassword } = await req.json();
     if (!currentPassword || !newPassword || String(newPassword).length < 8) {
       return NextResponse.json(

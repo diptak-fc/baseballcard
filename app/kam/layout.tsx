@@ -1,8 +1,7 @@
 import Shell from "@/components/Shell";
 import { getSession } from "@/lib/auth";
-import { navLinksFor } from "@/lib/nav";
 
-export default async function CeoLayout({
+export default async function KamLayout({
   children,
 }: {
   children: React.ReactNode;
@@ -10,9 +9,9 @@ export default async function CeoLayout({
   const session = await getSession();
   return (
     <Shell
-      name={session?.name || "CEO"}
-      roleLabel="Chief Executive Officer"
-      links={navLinksFor("CEO")}
+      name={session?.name || "KAM"}
+      roleLabel="Key Account Manager"
+      links={[{ href: "/kam", label: "Score My CSMs" }]}
     >
       {children}
     </Shell>

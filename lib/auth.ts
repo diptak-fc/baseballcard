@@ -4,7 +4,7 @@ import { NextResponse } from "next/server";
 
 export const SESSION_COOKIE = "fc_session";
 
-export type Role = "ADMIN" | "CEO" | "CSM";
+export type Role = "ADMIN" | "CEO" | "CSM" | "KAM";
 export type Session = { uid: number; role: Role; name: string; email: string };
 
 function secretKey(): Uint8Array {
@@ -77,5 +77,6 @@ export function errorResponse(e: unknown) {
 export function homeForRole(role: Role): string {
   if (role === "ADMIN") return "/admin";
   if (role === "CEO") return "/ceo";
+  if (role === "KAM") return "/kam";
   return "/me";
 }

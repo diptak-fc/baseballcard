@@ -126,3 +126,66 @@ export function lastThreeConsecutive(
 export function fmtScore(n: number | null | undefined): string {
   return typeof n === "number" ? n.toFixed(1) : "—";
 }
+
+// ---- Self-evaluation / KAM-evaluation note limit ---------------------------
+export const MAX_NOTE_LEN = 500;
+
+// Variance between a CSM's self-score and their KAM's score of them, per
+// category. Used by the Director/CEO comparative analysis view.
+export function variance(self: number | null | undefined, other: number | null | undefined): number | null {
+  if (typeof self !== "number" || typeof other !== "number") return null;
+  return Math.round((other - self) * 10) / 10;
+}
+
+// ---- CSM → KAM feedback rubric ---------------------------------------------
+// Five parameters a CSM scores their KAM on, monthly, no free text.
+// Coordination / Collaboration / Leadership share a 4-point scale;
+// Knowledge Sharing is a 2-point yes/no; Meeting Availability is a 3-point scale.
+
+export const KAM_SCALE_4 = [
+  { value: 1, label: "Non-" },
+  { value: 2, label: "Mildly" },
+  { value: 3, label: "Very" },
+  { value: 4, label: "Extremely" },
+] as const;
+
+export const KAM_KNOWLEDGE_SCALE = [
+  { value: 1, label: "Not done" },
+  { value: 2, label: "Done" },
+] as const;
+
+export const KAM_AVAILABILITY_SCALE = [
+  { value: 1, label: "Not present" },
+  { value: 2, label: "Intermittent" },
+  { value: 3, label: "Very present" },
+] as const;
+
+export const KAM_PARAMS = [
+  { key: "coordination", label: "Coordination", scale: KAM_SCALE_4, prefixLabel: "coordinative" },
+  { key: "collaboration", label: "Collaboration", scale: KAM_SCALE_4, prefixLabel: "collaborative" },
+  { key: "leadership", label: "Leadership", scale: KAM_SCALE_4, prefixLabel: "" },
+  { key: "knowledgeSharing", label: "Knowledge Sharing", scale: KAM_KNOWLEDGE_SCALE, prefixLabel: "" },
+  { key: "meetingAvailability", label: "Meeting Availability", scale: KAM_AVAILABILITY_SCALE, prefixLabel: "" },
+] as const;
+
+export type KamParamKey = (typeof KAM_PARAMS)[number]["key"];
+export type KamFeedbackScores = Partial<Record<KamParamKey, number>>;
+
+export function kamScaleLabel(paramKey: KamParamKey, value: number | null | undefined): string {
+  if (typeof value !== "number") return "—";
+  const param = KAM_PARAMS.find((p) => p.key === paramKey);
+  const found = param?.scale.find((s) => s.value === value);
+  return found?.label ?? "—";
+}
+
+// A 0-1 "how positively is this KAM rated" reading, for a quick rollup chip.
+// Normalises each parameter to its own scale's max before averaging.
+export function kamFeedbackScore(scores: KamFeedbackScores): number | null {
+  const parts: number[] = [];
+  for (const p of KAM_PARAMS) {
+    const v = scores[p.key];
+    if (typeof v === "number") parts.push(v / p.scale[p.scale.length - 1].value);
+  }
+  if (parts.length === 0) return null;
+  return Math.round((parts.reduce((a, b) => a + b, 0) / parts.length) * 100) / 100;
+}
