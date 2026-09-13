@@ -64,6 +64,7 @@ export default function KamFeedbackPage() {
             leadership, knowledge sharing, and meeting availability. Never
             shown to the KAM themselves.
           </p>
+          <ScaleLegend />
         </div>
         <div className="flex gap-2">
           <div>
@@ -120,7 +121,10 @@ export default function KamFeedbackPage() {
           </section>
 
           <section className="card overflow-x-auto p-6">
-            <h2 className="mb-4 text-lg font-bold text-ink">Month by month</h2>
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+              <h2 className="text-lg font-bold text-ink">Month by month</h2>
+              <ScaleLegend compact />
+            </div>
             {feedback.length === 0 ? (
               <EmptyState title="No feedback submitted yet for this KAM" />
             ) : (
@@ -155,6 +159,27 @@ export default function KamFeedbackPage() {
           </section>
         </div>
       )}
+    </div>
+  );
+}
+
+// Explains what the CSM's plain 0 / 5 / 10 rating of their KAM means — shown
+// wherever those numbers are displayed, since they aren't self-explanatory
+// out of context.
+function ScaleLegend({ compact }: { compact?: boolean }) {
+  const items: { value: string; label: string; cls: string }[] = [
+    { value: "0", label: "Bad", cls: "bg-band-criticalBg text-band-critical" },
+    { value: "5", label: "Moderate", cls: "bg-band-warnBg text-band-warn" },
+    { value: "10", label: "Excellent", cls: "bg-band-goodBg text-band-good" },
+  ];
+  return (
+    <div className={"flex flex-wrap items-center gap-2 " + (compact ? "" : "mt-2")}>
+      {!compact && <span className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Scale:</span>}
+      {items.map((i) => (
+        <span key={i.value} className={"chip " + i.cls}>
+          {i.value} = {i.label}
+        </span>
+      ))}
     </div>
   );
 }

@@ -589,9 +589,15 @@ function KamFeedbackCard({
 
   return (
     <section className="card p-6">
-      <div className="mb-4 flex items-center justify-between gap-3">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-lg font-bold text-ink">Rate {kamName}</h2>
         <span className="text-xs text-ink-muted">{MONTHS[month - 1]} {year}</span>
+      </div>
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <span className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Scale:</span>
+        <span className="chip bg-band-criticalBg text-band-critical">0 = Bad</span>
+        <span className="chip bg-band-warnBg text-band-warn">5 = Moderate</span>
+        <span className="chip bg-band-goodBg text-band-good">10 = Excellent</span>
       </div>
       <div className="space-y-4">
         {KAM_PARAMS.map((p) => (
