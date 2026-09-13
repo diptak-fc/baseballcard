@@ -189,17 +189,13 @@ export function variance(self: number | null | undefined, other: number | null |
 
 // ---- CSM → KAM feedback rubric ---------------------------------------------
 // Five parameters a CSM scores their KAM on, monthly, no free text.
-// Coordination / Collaboration / Leadership share a 4-point scale;
-// Knowledge Sharing is a 2-point yes/no; Meeting Availability is a 3-point scale.
-
-// Unified 0/5/10 scale used for every parameter a CSM rates their KAM on.
-// 0 = the KAM was not available/present on this dimension at all;
-// 5 = the midpoint — showed up, but inconsistently or only partially;
-// 10 = fully present and reliable on this dimension.
+// Every parameter uses the same plain 0/5/10 scale, shown as the numbers
+// themselves (not descriptive words): 0 = bad, 5 = moderate, 10 = excellent —
+// the same numeric feel as every other 0–10 score in the app.
 export const KAM_UNIFIED_SCALE = [
-  { value: 0, label: "Not Available" },
-  { value: 5, label: "Somewhat Available" },
-  { value: 10, label: "Fully Available" },
+  { value: 0, label: "0" },
+  { value: 5, label: "5" },
+  { value: 10, label: "10" },
 ] as const;
 
 export const KAM_PARAMS = [
