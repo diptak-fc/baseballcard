@@ -7,7 +7,7 @@ import type { Role } from "@/lib/auth";
 export function navLinksFor(role: Role): NavLink[] {
   if (role === "ADMIN") {
     return [
-      { href: "/admin", label: "Monthly Scoring" },
+      { href: "/admin", label: "Monthly Review" },
       { href: "/admin/insights", label: "Performance Insights" },
       { href: "/reports", label: "Comparative Analysis" },
       { href: "/reports/kam-feedback", label: "KAM Feedback" },

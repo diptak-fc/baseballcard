@@ -1,7 +1,20 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { SELF_KAM_CATEGORIES, MONTHS, averageSelfKam, bandOf, ADMIN_BAND, fmtScore } from "@/lib/scoring";
+import {
+  SELF_KAM_CATEGORIES,
+  MONTHS,
+  averageSelfKam,
+  bandOf,
+  ADMIN_BAND,
+  fmtScore,
+  GWC_ITEMS,
+  MAX_GWC_REMARK_WORDS,
+  wordCount,
+  gwcComplete,
+  gwcMissingCount,
+  type GwcScores,
+} from "@/lib/scoring";
 import { BandChip, StatusChip, Spinner, EmptyState } from "@/components/ui";
 import { Avatar } from "@/components/photo";
 import { usePersistedMonth, usePersistedYear } from "@/lib/useMonthYear";
@@ -18,6 +31,7 @@ type KamEval = {
   id: number;
   csm_user_id: number;
   scores: Record<string, number>;
+  gwc?: GwcScores;
   status: string;
   ceo_note: string;
 };
@@ -55,10 +69,11 @@ export default function KamScoringPage() {
         <div>
           <h1 className="text-2xl font-bold text-ink">Score My CSMs</h1>
           <p className="mt-1 text-sm text-ink-soft">
-            Score each CSM you work with, across the same categories the
-            Director uses plus Results-Driven and Project Management. Your
-            score is submitted to the CEO for approval and compared against
-            the CSM&rsquo;s own self-evaluation.
+            Score each CSM you work with, across the original six categories
+            plus Results-Driven and Follow Through, and complete the GWC
+            panel for each. Your score becomes the official record once the
+            Director reviews it and publishes it to the CEO for approval —
+            it&rsquo;s compared against the CSM&rsquo;s own self-evaluation along the way.
           </p>
         </div>
         <div className="flex gap-2">
@@ -127,6 +142,7 @@ function KamEvalCard({
     }
     return init;
   });
+  const [gwc, setGwc] = useState<GwcScores>(() => existing?.gwc || {});
   const [busy, setBusy] = useState<null | "save" | "submit">(null);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
@@ -144,14 +160,36 @@ function KamEvalCard({
 
   const avg = averageSelfKam(numericScores as any);
   const band = avg !== null ? bandOf(avg) : null;
+  const gwcMissing = gwcMissingCount(gwc);
+  const gwcRemarkOverLimit = GWC_ITEMS.some(
+    (item) => wordCount(gwc[item.key]?.remark) > MAX_GWC_REMARK_WORDS
+  );
+
+  function setGwcValue(key: string, value: "yes" | "no") {
+    setGwc((g) => ({ ...g, [key]: { ...g[key as keyof GwcScores], value } }));
+  }
+  function setGwcRemark(key: string, remark: string) {
+    setGwc((g) => ({ ...g, [key]: { ...g[key as keyof GwcScores], remark } }));
+  }
 
   async function save(action: "save" | "submit") {
+    if (action === "submit" && !gwcComplete(gwc)) {
+      setMsg({
+        ok: false,
+        text: "Complete the GWC panel below (Gets It / Wants It / Has The Capability) before submitting.",
+      });
+      return;
+    }
+    if (gwcRemarkOverLimit) {
+      setMsg({ ok: false, text: `A GWC remark is over ${MAX_GWC_REMARK_WORDS} words — summarise it before saving.` });
+      return;
+    }
     setBusy(action);
     setMsg(null);
     const res = await fetch("/api/kam-evaluations", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ csmUserId: csm.id, year, month, scores: numericScores, action }),
+      body: JSON.stringify({ csmUserId: csm.id, year, month, scores: numericScores, gwc, action }),
     });
     const data = await res.json();
     setBusy(null);
@@ -159,7 +197,7 @@ function KamEvalCard({
       setMsg({ ok: false, text: data.error || "Could not save" });
       return;
     }
-    setMsg({ ok: true, text: action === "submit" ? "Submitted to the CEO for approval." : "Draft saved." });
+    setMsg({ ok: true, text: action === "submit" ? "Submitted — ready for the Director to review and publish." : "Draft saved." });
     onSaved();
   }
 
@@ -184,6 +222,14 @@ function KamEvalCard({
           </div>
         </div>
         <div className="flex items-center gap-2">
+          {!locked && gwcMissing > 0 && (
+            <span
+              className="chip flex items-center gap-1 bg-band-warnBg text-band-warn"
+              title="The GWC panel below still needs your input"
+            >
+              ⚠ GWC needed
+            </span>
+          )}
           <StatusChip status={status} />
           {avg !== null && band && <BandChip band={band} label={`${fmtScore(avg)} · ${ADMIN_BAND[band].label}`} />}
         </div>
@@ -215,21 +261,107 @@ function KamEvalCard({
         ))}
       </div>
 
+      <div className="mt-5 rounded-xl border border-surface-line bg-surface-alt p-4">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <h3 className="text-sm font-bold uppercase tracking-wide text-ink">GWC Panel</h3>
+            <span className="chip bg-accent/10 text-accent">Mandatory</span>
+          </div>
+          {!locked && gwcMissing > 0 && (
+            <span className="flex items-center gap-1 text-xs font-semibold text-band-warn">
+              ⚠ {gwcMissing} of {GWC_ITEMS.length} still needed
+            </span>
+          )}
+        </div>
+        <div className="space-y-3">
+          {GWC_ITEMS.map((item) => {
+            const answer = gwc[item.key];
+            const remarkWords = wordCount(answer?.remark);
+            const remarkOver = remarkWords > MAX_GWC_REMARK_WORDS;
+            const needsRemark = answer?.value === "no";
+            return (
+              <div key={item.key} className="rounded-lg border border-surface-line bg-surface p-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <div className="text-sm font-bold text-ink">{item.label}</div>
+                    <div className="text-xs text-ink-muted">{item.question}</div>
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      disabled={locked}
+                      onClick={() => setGwcValue(item.key, "yes")}
+                      className={
+                        "rounded-lg border px-3 py-1.5 text-xs font-bold transition-colors " +
+                        (answer?.value === "yes"
+                          ? "border-band-good bg-band-goodBg text-band-good"
+                          : "border-surface-line text-ink-soft hover:text-accent")
+                      }
+                    >
+                      Yes
+                    </button>
+                    <button
+                      type="button"
+                      disabled={locked}
+                      onClick={() => setGwcValue(item.key, "no")}
+                      className={
+                        "rounded-lg border px-3 py-1.5 text-xs font-bold transition-colors " +
+                        (answer?.value === "no"
+                          ? "border-band-critical bg-band-criticalBg text-band-critical"
+                          : "border-surface-line text-ink-soft hover:text-accent")
+                      }
+                    >
+                      No
+                    </button>
+                  </div>
+                </div>
+                {needsRemark && (
+                  <div className="mt-2">
+                    <p className="mb-1 text-xs font-semibold text-band-critical">
+                      Please mention why you selected &ldquo;No&rdquo; for this KPI.
+                    </p>
+                    <textarea
+                      className={
+                        "input min-h-[50px] " +
+                        (remarkOver ? "!border-band-critical !text-band-critical" : "")
+                      }
+                      placeholder="A brief, summarised remark…"
+                      disabled={locked}
+                      value={answer?.remark || ""}
+                      onChange={(e) => setGwcRemark(item.key, e.target.value)}
+                    />
+                    <div className={"mt-1 text-right text-[11px] " + (remarkOver ? "font-bold text-band-critical" : "text-ink-muted")}>
+                      {remarkWords}/{MAX_GWC_REMARK_WORDS} words
+                      {remarkOver && " — over the limit, please summarise"}
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
       <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
         <div className="text-xs text-ink-muted">
           {locked
-            ? "Approved by the CEO — this evaluation is locked."
+            ? "This month is locked."
             : status === "submitted"
-            ? "Awaiting CEO review. Saving again will pull it back to draft."
-            : "Scores are out of 10. Submit when every category is scored."}
+            ? "Ready for the Director to review and publish. Saving again will pull it back to draft."
+            : "Scores are out of 10. The GWC panel above is mandatory before submitting."}
         </div>
         {!locked && (
           <div className="flex gap-2">
-            <button className="btn-secondary" disabled={busy !== null} onClick={() => save("save")}>
+            <button className="btn-secondary" disabled={busy !== null || gwcRemarkOverLimit} onClick={() => save("save")}>
               {busy === "save" ? "Saving…" : "Save draft"}
             </button>
-            <button className="btn-primary" disabled={busy !== null} onClick={() => save("submit")}>
-              {busy === "submit" ? "Submitting…" : "Submit for approval"}
+            <button
+              className="btn-primary"
+              disabled={busy !== null || gwcRemarkOverLimit}
+              onClick={() => save("submit")}
+              title={gwcMissing > 0 ? "Complete the GWC panel before submitting" : undefined}
+            >
+              {busy === "submit" ? "Submitting…" : "Submit"}
             </button>
           </div>
         )}

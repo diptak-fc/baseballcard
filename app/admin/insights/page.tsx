@@ -4,8 +4,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   MONTHS,
   QUARTERS,
-  CATEGORIES,
-  average,
+  SELF_KAM_CATEGORIES,
+  averageSelfKam,
   mean,
   bandOf,
   ADMIN_BAND,
@@ -123,7 +123,7 @@ function PersonInsights({
   const monthly = useMemo(() => {
     const map = new Map<number, number>();
     for (const e of evals) {
-      const a = average(e.scores as any);
+      const a = averageSelfKam(e.scores as any);
       if (a !== null) map.set(e.month, a);
     }
     return map;
@@ -148,7 +148,7 @@ function PersonInsights({
   const streak = lastThreeConsecutive(monthly);
 
   // Category averages across the scored months
-  const catAverages = CATEGORIES.map((c) => {
+  const catAverages = SELF_KAM_CATEGORIES.map((c) => {
     const vals = evals
       .map((e) => e.scores?.[c.key])
       .filter((v): v is number => typeof v === "number");
@@ -210,7 +210,7 @@ function PersonInsights({
       <section className="card p-6">
         <h2 className="mb-1 text-lg font-bold text-ink">Monthly average score</h2>
         <p className="mb-4 text-xs text-ink-muted">
-          Average of the six category scores for each scored month of {year}.
+          Average of the eight category scores (the official, KAM-derived record) for each scored month of {year}.
         </p>
         <ScoreBarChart data={monthData} />
       </section>
@@ -267,13 +267,13 @@ function PersonInsights({
               <th className="pb-2 pr-4">Average</th>
               <th className="pb-2 pr-4">Standing</th>
               <th className="pb-2 pr-4">Status</th>
-              <th className="pb-2">Director feedback</th>
+              <th className="pb-2">Director&rsquo;s note</th>
             </tr>
           </thead>
           <tbody>
             {MONTHS.map((m, i) => {
               const e = evals.find((x) => x.month === i + 1);
-              const a = e ? average(e.scores as any) : null;
+              const a = e ? averageSelfKam(e.scores as any) : null;
               const b = a !== null ? bandOf(a) : null;
               return (
                 <tr key={m} className="border-b border-surface-line/60 last:border-0">
@@ -306,6 +306,8 @@ function shortLabel(label: string) {
     "AI Adoption": "AI",
     "POD Management": "POD",
     "Client Sentiment": "Client",
+    "Results-Driven": "Results",
+    "Follow Through": "Follow",
   };
   return map[label] || label;
 }

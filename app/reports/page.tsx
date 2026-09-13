@@ -5,7 +5,6 @@ import {
   MONTHS,
   QUARTERS,
   SELF_KAM_CATEGORIES,
-  average,
   averageSelfKam,
   mean,
   variance,
@@ -18,7 +17,9 @@ import { ScoreBarChart } from "@/components/charts";
 import { usePersistedYear } from "@/lib/useMonthYear";
 
 type Person = { id: number; name: string; title: string; active: boolean };
-type DirectorEval = { month: number; scores: Record<string, number>; status: string };
+// The "official" record — published by the Director, but scored via the
+// mean of the CSM's KAM evaluation(s). The Director no longer scores.
+type OfficialEval = { month: number; scores: Record<string, number>; status: string };
 type SelfEval = { month: number; scores: Record<string, number>; notes: Record<string, string> };
 type KamEval = {
   month: number;
@@ -34,7 +35,7 @@ export default function ComparativeAnalysisPage() {
   const [people, setPeople] = useState<Person[] | null>(null);
   const [userId, setUserId] = useState<number | null>(null);
   const [year, setYear] = usePersistedYear();
-  const [directorEvals, setDirectorEvals] = useState<DirectorEval[] | null>(null);
+  const [officialEvals, setOfficialEvals] = useState<OfficialEval[] | null>(null);
   const [selfEvals, setSelfEvals] = useState<SelfEval[] | null>(null);
   const [kamEvals, setKamEvals] = useState<KamEval[] | null>(null);
 
@@ -50,7 +51,7 @@ export default function ComparativeAnalysisPage() {
 
   const load = useCallback(async () => {
     if (!userId) return;
-    setDirectorEvals(null);
+    setOfficialEvals(null);
     setSelfEvals(null);
     setKamEvals(null);
     const [d, s, k] = await Promise.all([
@@ -58,7 +59,7 @@ export default function ComparativeAnalysisPage() {
       fetch(`/api/self-evaluations?year=${year}&userId=${userId}`).then((r) => r.json()),
       fetch(`/api/kam-evaluations?year=${year}&userId=${userId}`).then((r) => r.json()),
     ]);
-    setDirectorEvals(d.evaluations || []);
+    setOfficialEvals(d.evaluations || []);
     setSelfEvals(s.evaluations || []);
     setKamEvals(k.evaluations || []);
   }, [userId, year]);
@@ -68,7 +69,7 @@ export default function ComparativeAnalysisPage() {
   }, [load]);
 
   const person = people?.find((p) => p.id === userId);
-  const loading = !people || !directorEvals || !selfEvals || !kamEvals;
+  const loading = !people || !officialEvals || !selfEvals || !kamEvals;
 
   return (
     <div>
@@ -76,9 +77,10 @@ export default function ComparativeAnalysisPage() {
         <div>
           <h1 className="text-2xl font-bold text-ink">Comparative Analysis</h1>
           <p className="mt-1 text-sm text-ink-soft">
-            The CSM&rsquo;s self-score next to their KAM&rsquo;s score of them and the
-            Director&rsquo;s official score — month by month, and rolled up by
-            quarter and year.
+            The CSM&rsquo;s self-score next to their KAM&rsquo;s score of them, and the
+            official score — the KAM-derived record the Director reviews and
+            publishes to the CEO — month by month, and rolled up by quarter
+            and year.
           </p>
         </div>
         <div className="flex gap-2">
@@ -112,7 +114,7 @@ export default function ComparativeAnalysisPage() {
           <ComparisonBody
             person={person}
             year={year}
-            directorEvals={directorEvals!}
+            officialEvals={officialEvals!}
             selfEvals={selfEvals!}
             kamEvals={kamEvals!}
           />
@@ -125,43 +127,43 @@ export default function ComparativeAnalysisPage() {
 function ComparisonBody({
   person,
   year,
-  directorEvals,
+  officialEvals,
   selfEvals,
   kamEvals,
 }: {
   person: Person;
   year: number;
-  directorEvals: DirectorEval[];
+  officialEvals: OfficialEval[];
   selfEvals: SelfEval[];
   kamEvals: KamEval[];
 }) {
   const rows = useMemo(() => {
     return MONTHS.map((_, i) => {
       const month = i + 1;
-      const d = directorEvals.find((e) => e.month === month);
+      const d = officialEvals.find((e) => e.month === month);
       const s = selfEvals.find((e) => e.month === month);
       const kams = kamEvals.filter((e) => e.month === month);
 
-      const directorAvg = d ? average(d.scores as any) : null;
+      const officialAvg = d ? averageSelfKam(d.scores as any) : null;
       const selfAvg = s ? averageSelfKam(s.scores as any) : null;
       const kamAvgs = kams.map((k) => ({ name: k.kam_name, avg: averageSelfKam(k.scores as any), status: k.status }));
       const kamCombined = mean(kamAvgs.map((k) => k.avg).filter((v): v is number => v !== null));
 
-      return { month, directorAvg, selfAvg, kamAvgs, kamCombined };
+      return { month, officialAvg, selfAvg, kamAvgs, kamCombined };
     });
-  }, [directorEvals, selfEvals, kamEvals]);
+  }, [officialEvals, selfEvals, kamEvals]);
 
-  const chartData = rows.map((r) => ({ label: MONTHS[r.month - 1].slice(0, 3), score: r.directorAvg }));
+  const chartData = rows.map((r) => ({ label: MONTHS[r.month - 1].slice(0, 3), score: r.officialAvg }));
 
   const quarters = QUARTERS.map((q) => {
     const inQ = rows.filter((r) => q.months.includes(r.month));
-    const director = mean(inQ.map((r) => r.directorAvg).filter((v): v is number => v !== null));
+    const director = mean(inQ.map((r) => r.officialAvg).filter((v): v is number => v !== null));
     const self = mean(inQ.map((r) => r.selfAvg).filter((v): v is number => v !== null));
     const kam = mean(inQ.map((r) => r.kamCombined).filter((v): v is number => v !== null));
     return { name: q.name, director, self, kam };
   });
 
-  const annualDirector = mean(rows.map((r) => r.directorAvg).filter((v): v is number => v !== null));
+  const annualOfficial = mean(rows.map((r) => r.officialAvg).filter((v): v is number => v !== null));
   const annualSelf = mean(rows.map((r) => r.selfAvg).filter((v): v is number => v !== null));
   const annualKam = mean(rows.map((r) => r.kamCombined).filter((v): v is number => v !== null));
 
@@ -169,7 +171,7 @@ function ComparisonBody({
     <div className="space-y-5">
       <section className="card p-6">
         <h2 className="mb-4 text-lg font-bold text-ink">
-          {person.name} — Director&rsquo;s official monthly score
+          {person.name} — Official (KAM-derived) monthly score
         </h2>
         <ScoreBarChart data={chartData} />
       </section>
@@ -183,7 +185,7 @@ function ComparisonBody({
               <th className="pb-2 pr-4">Self-score</th>
               <th className="pb-2 pr-4">KAM score</th>
               <th className="pb-2 pr-4">Variance (KAM − Self)</th>
-              <th className="pb-2">Director&rsquo;s official</th>
+              <th className="pb-2">Official (KAM-derived)</th>
             </tr>
           </thead>
           <tbody>
@@ -218,7 +220,7 @@ function ComparisonBody({
                       </span>
                     )}
                   </td>
-                  <td className="py-2.5 font-bold text-accent">{fmtScore(r.directorAvg)}</td>
+                  <td className="py-2.5 font-bold text-accent">{fmtScore(r.officialAvg)}</td>
                 </tr>
               );
             })}
@@ -234,7 +236,7 @@ function ComparisonBody({
               <div className="mb-2 font-bold text-ink">{q.name}</div>
               <RollupLine label="Self" value={q.self} />
               <RollupLine label="KAM" value={q.kam} />
-              <RollupLine label="Director" value={q.director} highlight />
+              <RollupLine label="Official" value={q.director} highlight />
             </div>
           ))}
         </div>
@@ -250,10 +252,10 @@ function ComparisonBody({
             <RollupLine label="KAM" value={annualKam} />
           </div>
           <div className="rounded-xl border border-surface-line bg-surface-alt p-4">
-            <RollupLine label="Director (official)" value={annualDirector} highlight />
-            {annualDirector !== null && (
+            <RollupLine label="Official (KAM-derived)" value={annualOfficial} highlight />
+            {annualOfficial !== null && (
               <div className="mt-1">
-                <BandChip band={bandOf(annualDirector)} label={ADMIN_BAND[bandOf(annualDirector)].label} />
+                <BandChip band={bandOf(annualOfficial)} label={ADMIN_BAND[bandOf(annualOfficial)].label} />
               </div>
             )}
           </div>

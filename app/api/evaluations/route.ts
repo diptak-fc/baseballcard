@@ -1,14 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requireRole, errorResponse } from "@/lib/auth";
-import { CATEGORIES } from "@/lib/scoring";
+import { SELF_KAM_CATEGORIES, MAX_NOTE_WORDS, wordCount } from "@/lib/scoring";
 
-// GET evaluations.
+// GET evaluations — these are now the Director-published, KAM-derived
+// "official" combined record (8 categories: the original six plus
+// Results-Driven and Follow Through).
 //   ?year=2026&month=8       → that month, all CSMs   (Admin/CEO)
 //   ?year=2026&userId=5      → whole year for one CSM (Admin/CEO)
 //   ?year=2026               → whole year, all CSMs   (Admin/CEO)
-//   CSMs always receive only their own rows, and only submitted/decided ones
-//   are shown with status; drafts are hidden from them.
+//   CSMs always receive only their own rows, and only ones the CEO has
+//   approved are shown to them; drafts/pending ones are hidden.
 export async function GET(req: NextRequest) {
   try {
     const session = await requireRole("ADMIN", "CEO", "CSM");
@@ -41,31 +43,34 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// POST: create/update a monthly evaluation (Admin).
-//   body: { userId, year, month, scores, feedback, action?: "save" | "submit" }
-// Rules: approved evaluations are locked; editing a submitted one pulls it
-// back to draft; "submit" requires all six scores and moves it to the CEO.
+// POST: the Director publishes a CSM's combined monthly record to the CEO.
+//   body: { userId, year, month, note? }
+//
+// The Director no longer enters scores. Instead this computes the "official"
+// score as the mean, per category, across every KAM evaluation submitted for
+// this CSM this month (there is normally one assigned KAM, but this averages
+// across all of them if more than one contributed). The Director may attach
+// an optional note (max 500 words) — their own commentary, not a score.
+// Publishing requires at least one submitted (or already-approved) KAM
+// evaluation to exist for that CSM/month; an already-approved record is
+// locked and cannot be re-published.
 export async function POST(req: NextRequest) {
   try {
     await requireRole("ADMIN");
-    const { userId, year, month, scores, feedback, action } = await req.json();
+    const { userId, year, month, note } = await req.json();
     if (!userId || !year || !month) {
       return NextResponse.json({ error: "userId, year and month are required" }, { status: 400 });
     }
 
-    const cleanScores: Record<string, number> = {};
-    for (const c of CATEGORIES) {
-      const v = scores?.[c.key];
-      if (v !== undefined && v !== null && v !== "") {
-        const n = Number(v);
-        if (Number.isNaN(n) || n < 0 || n > 10) {
-          return NextResponse.json({ error: `${c.label} must be between 0 and 10` }, { status: 400 });
-        }
-        cleanScores[c.key] = Math.round(n * 10) / 10;
-      }
+    if (typeof note === "string" && wordCount(note) > MAX_NOTE_WORDS) {
+      return NextResponse.json(
+        { error: `Your note is over ${MAX_NOTE_WORDS} words` },
+        { status: 400 }
+      );
     }
 
     const sql = await db();
+
     const existing = await sql`
       SELECT id, status FROM evaluations
       WHERE user_id = ${userId} AND year = ${year} AND month = ${month}`;
@@ -73,34 +78,43 @@ export async function POST(req: NextRequest) {
 
     if (current?.status === "approved") {
       return NextResponse.json(
-        { error: "This evaluation is approved and locked" },
+        { error: "This month is already approved by the CEO and locked" },
         { status: 409 }
       );
     }
 
-    const submitting = action === "submit";
-    if (submitting) {
-      const missing = CATEGORIES.filter((c) => cleanScores[c.key] === undefined);
-      if (missing.length > 0) {
-        return NextResponse.json(
-          { error: `Fill in every score before submitting (missing: ${missing.map((m) => m.label).join(", ")})` },
-          { status: 400 }
-        );
+    const kamRows = await sql`
+      SELECT scores FROM kam_evaluations
+      WHERE csm_user_id = ${userId} AND year = ${year} AND month = ${month}
+        AND status IN ('submitted', 'approved')`;
+
+    if (kamRows.length === 0) {
+      return NextResponse.json(
+        { error: "No KAM evaluation has been submitted for this CSM this month yet — nothing to publish." },
+        { status: 400 }
+      );
+    }
+
+    const combined: Record<string, number> = {};
+    for (const c of SELF_KAM_CATEGORIES) {
+      const vals = (kamRows as any[])
+        .map((r) => (r.scores as Record<string, number> | null)?.[c.key])
+        .filter((v): v is number => typeof v === "number" && !Number.isNaN(v));
+      if (vals.length > 0) {
+        combined[c.key] = Math.round((vals.reduce((a, b) => a + b, 0) / vals.length) * 10) / 10;
       }
     }
 
-    const status = submitting ? "submitted" : "draft";
     const rows = await sql`
       INSERT INTO evaluations (user_id, year, month, scores, feedback, status, submitted_at, updated_at)
-      VALUES (${userId}, ${year}, ${month}, ${JSON.stringify(cleanScores)},
-              ${feedback || ""}, ${status},
-              ${submitting ? new Date().toISOString() : null}, NOW())
+      VALUES (${userId}, ${year}, ${month}, ${JSON.stringify(combined)},
+              ${note || ""}, 'submitted', NOW(), NOW())
       ON CONFLICT (user_id, year, month) DO UPDATE SET
         scores = EXCLUDED.scores,
         feedback = EXCLUDED.feedback,
-        status = EXCLUDED.status,
-        submitted_at = EXCLUDED.submitted_at,
-        ceo_note = CASE WHEN EXCLUDED.status = 'submitted' THEN '' ELSE evaluations.ceo_note END,
+        status = 'submitted',
+        submitted_at = NOW(),
+        ceo_note = '',
         decided_at = NULL,
         updated_at = NOW()
       RETURNING id, user_id, year, month, scores, feedback, status, ceo_note, submitted_at, decided_at`;

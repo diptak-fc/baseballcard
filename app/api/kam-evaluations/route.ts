@@ -1,7 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requireRole, errorResponse } from "@/lib/auth";
-import { SELF_KAM_CATEGORIES } from "@/lib/scoring";
+import {
+  SELF_KAM_CATEGORIES,
+  GWC_ITEMS,
+  MAX_GWC_REMARK_WORDS,
+  wordCount,
+  gwcComplete,
+} from "@/lib/scoring";
 
 // GET KAM evaluations of CSMs.
 //   KAM:        ?year=&month=   → this KAM's scores of their own CSMs that month
@@ -18,7 +24,7 @@ export async function GET(req: NextRequest) {
 
     const sql = await db();
     const rows = await sql`
-      SELECT k.id, k.kam_user_id, k.csm_user_id, k.year, k.month, k.scores, k.status,
+      SELECT k.id, k.kam_user_id, k.csm_user_id, k.year, k.month, k.scores, k.gwc, k.status,
              k.ceo_note, k.submitted_at, k.decided_at,
              csm.name AS csm_name, kam.name AS kam_name
       FROM kam_evaluations k
@@ -41,7 +47,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const session = await requireRole("KAM");
-    const { csmUserId, year, month, scores, action } = await req.json();
+    const { csmUserId, year, month, scores, gwc, action } = await req.json();
     if (!csmUserId || !year || !month) {
       return NextResponse.json({ error: "csmUserId, year and month are required" }, { status: 400 });
     }
@@ -66,6 +72,24 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // Clean the GWC panel: each item's Yes/No answer, plus a word-capped
+    // remark that's required whenever the answer is "No".
+    const cleanGwc: Record<string, { value?: "yes" | "no"; remark?: string }> = {};
+    for (const item of GWC_ITEMS) {
+      const a = gwc?.[item.key];
+      const value = a?.value === "yes" || a?.value === "no" ? a.value : undefined;
+      const remarkRaw = typeof a?.remark === "string" ? a.remark.trim() : "";
+      if (remarkRaw && wordCount(remarkRaw) > MAX_GWC_REMARK_WORDS) {
+        return NextResponse.json(
+          { error: `Your remark for "${item.label}" is over ${MAX_GWC_REMARK_WORDS} words — please summarise.` },
+          { status: 400 }
+        );
+      }
+      // A "No" without a remark is allowed while saving a draft; it's
+      // enforced (via gwcComplete below) only when actually submitting.
+      cleanGwc[item.key] = { value, remark: remarkRaw || undefined };
+    }
+
     const existing = await sql`
       SELECT id, status FROM kam_evaluations
       WHERE kam_user_id = ${session.uid} AND csm_user_id = ${csmUserId} AND year = ${year} AND month = ${month}`;
@@ -83,21 +107,31 @@ export async function POST(req: NextRequest) {
           { status: 400 }
         );
       }
+      if (!gwcComplete(cleanGwc)) {
+        return NextResponse.json(
+          {
+            error:
+              "The GWC panel (Gets It / Wants It / Has The Capability) is required before submitting — answer Yes or No for each, and add a remark for any \"No\".",
+          },
+          { status: 400 }
+        );
+      }
     }
 
     const status = submitting ? "submitted" : "draft";
     const rows = await sql`
-      INSERT INTO kam_evaluations (kam_user_id, csm_user_id, year, month, scores, status, submitted_at, updated_at)
+      INSERT INTO kam_evaluations (kam_user_id, csm_user_id, year, month, scores, gwc, status, submitted_at, updated_at)
       VALUES (${session.uid}, ${csmUserId}, ${year}, ${month}, ${JSON.stringify(cleanScores)},
-              ${status}, ${submitting ? new Date().toISOString() : null}, NOW())
+              ${JSON.stringify(cleanGwc)}, ${status}, ${submitting ? new Date().toISOString() : null}, NOW())
       ON CONFLICT (kam_user_id, csm_user_id, year, month) DO UPDATE SET
         scores = EXCLUDED.scores,
+        gwc = EXCLUDED.gwc,
         status = EXCLUDED.status,
         submitted_at = EXCLUDED.submitted_at,
         ceo_note = CASE WHEN EXCLUDED.status = 'submitted' THEN '' ELSE kam_evaluations.ceo_note END,
         decided_at = NULL,
         updated_at = NOW()
-      RETURNING id, kam_user_id, csm_user_id, year, month, scores, status, ceo_note, submitted_at, decided_at`;
+      RETURNING id, kam_user_id, csm_user_id, year, month, scores, gwc, status, ceo_note, submitted_at, decided_at`;
 
     return NextResponse.json({ evaluation: rows[0] });
   } catch (e) {

@@ -2,12 +2,12 @@
 
 import { useEffect, useMemo, useState } from "react";
 import {
-  CATEGORIES,
   SELF_KAM_CATEGORIES,
   MONTHS,
   QUARTERS,
   KAM_PARAMS,
-  MAX_NOTE_LEN,
+  MAX_SELF_NOTE_WORDS,
+  wordCount,
   average,
   averageSelfKam,
   mean,
@@ -66,7 +66,7 @@ export default function MyCardPage() {
   const monthly = useMemo(() => {
     const map = new Map<number, number>();
     for (const e of evals || []) {
-      const a = average(e.scores as any);
+      const a = averageSelfKam(e.scores as any);
       if (a !== null) map.set(e.month, a);
     }
     return map;
@@ -174,7 +174,7 @@ function MonthlyTab({
   latestScored: number | null;
 }) {
   const e = evals.find((x) => x.month === month);
-  const avg = e ? average(e.scores as any) : null;
+  const avg = e ? averageSelfKam(e.scores as any) : null;
   const band = avg !== null ? bandOf(avg) : null;
 
   return (
@@ -196,7 +196,7 @@ function MonthlyTab({
       {!e ? (
         <EmptyState
           title={`No published review for ${MONTHS[month - 1]} yet`}
-          hint="Your review appears here once it has been scored by the Director of Client Success and approved by the CEO."
+          hint="Your review appears here once your KAM has scored you, the Director has published it, and the CEO has approved it."
         />
       ) : (
         <section className="card p-6">
@@ -208,15 +208,15 @@ function MonthlyTab({
               <BandChip band={band} label={`${fmtScore(avg)}/10 · ${CSM_BAND[band]}`} />
             )}
           </div>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-            {CATEGORIES.map((c) => (
+          <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 lg:grid-cols-8">
+            {SELF_KAM_CATEGORIES.map((c) => (
               <ScoreTile key={c.key} label={c.label} value={e.scores?.[c.key]} />
             ))}
           </div>
           <div className="mt-5 rounded-xl border border-surface-line bg-surface-alt p-4">
-            <div className="label !mb-1">Client Success Director feedback</div>
+            <div className="label !mb-1">Client Success Director&rsquo;s note</div>
             <p className="text-sm text-ink-soft">
-              {e.feedback || "No written feedback for this month."}
+              {e.feedback || "No written note for this month."}
             </p>
           </div>
         </section>
@@ -394,7 +394,13 @@ function SelfEvalForm({
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
+  const overLimit = SELF_KAM_CATEGORIES.some((c) => wordCount(notes[c.key]) > MAX_SELF_NOTE_WORDS);
+
   async function save() {
+    if (overLimit) {
+      setMsg({ ok: false, text: `A note is over ${MAX_SELF_NOTE_WORDS} words — trim it before saving.` });
+      return;
+    }
     setBusy(true);
     setMsg(null);
     const numericScores: Record<string, number> = {};
@@ -427,38 +433,45 @@ function SelfEvalForm({
       </div>
 
       <div className="space-y-4">
-        {SELF_KAM_CATEGORIES.map((c) => (
-          <div key={c.key} className="rounded-xl border border-surface-line bg-surface-alt p-4">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <label className="text-sm font-bold text-ink">{c.label}</label>
-              <input
-                className="input !w-24 text-center font-bold"
-                type="number"
-                min={0}
-                max={10}
-                step={0.5}
-                inputMode="decimal"
-                placeholder="0–10"
-                value={scores[c.key]}
-                onChange={(e) => setScores((s) => ({ ...s, [c.key]: e.target.value }))}
+        {SELF_KAM_CATEGORIES.map((c) => {
+          const words = wordCount(notes[c.key]);
+          const over = words > MAX_SELF_NOTE_WORDS;
+          return (
+            <div key={c.key} className="rounded-xl border border-surface-line bg-surface-alt p-4">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <label className="text-sm font-bold text-ink">{c.label}</label>
+                <input
+                  className="input !w-24 text-center font-bold"
+                  type="number"
+                  min={0}
+                  max={10}
+                  step={0.5}
+                  inputMode="decimal"
+                  placeholder="0–10"
+                  value={scores[c.key]}
+                  onChange={(e) => setScores((s) => ({ ...s, [c.key]: e.target.value }))}
+                />
+              </div>
+              <textarea
+                className={
+                  "input mt-2 min-h-[60px] " +
+                  (over ? "!border-band-critical !text-band-critical" : "")
+                }
+                placeholder={`Optional — why do you feel you should get this score? (max ${MAX_SELF_NOTE_WORDS} words)`}
+                value={notes[c.key]}
+                onChange={(e) => setNotes((n) => ({ ...n, [c.key]: e.target.value }))}
               />
+              <div className={"mt-1 text-right text-[11px] " + (over ? "font-bold text-band-critical" : "text-ink-muted")}>
+                {words}/{MAX_SELF_NOTE_WORDS} words
+                {over && " — over the limit, trim it to save"}
+              </div>
             </div>
-            <textarea
-              className="input mt-2 min-h-[60px]"
-              placeholder="Optional — why do you feel you should get this score? (max 500 characters)"
-              maxLength={MAX_NOTE_LEN}
-              value={notes[c.key]}
-              onChange={(e) => setNotes((n) => ({ ...n, [c.key]: e.target.value }))}
-            />
-            <div className="mt-1 text-right text-[11px] text-ink-muted">
-              {notes[c.key]?.length || 0}/{MAX_NOTE_LEN}
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       <div className="mt-4 flex justify-end">
-        <button className="btn-primary" disabled={busy} onClick={save}>
+        <button className="btn-primary" disabled={busy || overLimit} onClick={save}>
           {busy ? "Saving…" : "Save self-evaluation"}
         </button>
       </div>

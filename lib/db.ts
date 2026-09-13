@@ -86,6 +86,37 @@ async function emailForKamName(sql: Sql, name: string): Promise<string> {
   }
 }
 
+// The real, org-assigned login email for each named KAM (first name,
+// lowercase, matched against the KAM's stored name). Overrides whatever
+// auto-generated email `emailForKamName` picked when the account was first
+// backfilled from free-text assignment data. Safe to re-run: only changes
+// an account if its email doesn't already match, and never steals an email
+// that belongs to a different user.
+const KAM_EMAIL_OVERRIDES: Record<string, string> = {
+  angie: "araja@fullcircleagency.com",
+  diptak: "diptak@fullcircleagency.com",
+  evan: "erswanson@fullcircleagency.com",
+  fanny: "fdchaubey@fullcircleagency.com",
+  jim: "jmiller@fullcircleagency.com",
+  rishi: "rphadke@fullcircleagency.com",
+};
+
+async function applyKamEmailOverrides(sql: Sql) {
+  const hash = await bcrypt.hash(DEFAULT_PASSWORD, 10);
+  const kams = await sql`SELECT id, name, email FROM users WHERE role = 'KAM'`;
+  for (const k of kams as { id: number; name: string; email: string }[]) {
+    const first = k.name.trim().split(/\s+/)[0]?.toLowerCase();
+    const desired = first ? KAM_EMAIL_OVERRIDES[first] : undefined;
+    if (!desired || k.email.toLowerCase() === desired.toLowerCase()) continue;
+    const clash = await sql`
+      SELECT id FROM users WHERE LOWER(email) = LOWER(${desired}) AND id <> ${k.id} LIMIT 1`;
+    if (clash.length > 0) continue; // another account already owns that email — leave this one alone
+    // Set the official email and reset to the default password, so the
+    // credentials the Director hands out are guaranteed to work.
+    await sql`UPDATE users SET email = ${desired}, password_hash = ${hash} WHERE id = ${k.id}`;
+  }
+}
+
 // Every unique KAM name still stored only as free text on an assignment gets
 // a real login account, and the assignment is linked to it. Safe to re-run —
 // only touches names that don't already have a linked account.
@@ -181,6 +212,7 @@ async function initSchema(sql: Sql) {
       year INTEGER NOT NULL,
       month INTEGER NOT NULL CHECK (month BETWEEN 1 AND 12),
       scores JSONB NOT NULL DEFAULT '{}',
+      gwc JSONB NOT NULL DEFAULT '{}',
       status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft','submitted','approved','denied')),
       ceo_note TEXT NOT NULL DEFAULT '',
       submitted_at TIMESTAMPTZ,
@@ -208,9 +240,12 @@ async function initSchema(sql: Sql) {
   await sql`ALTER TABLE assignments ADD COLUMN IF NOT EXISTS kam_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL`;
   await sql`ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check`;
   await sql`ALTER TABLE users ADD CONSTRAINT users_role_check CHECK (role IN ('ADMIN','CEO','CSM','KAM'))`;
+  await sql`ALTER TABLE kam_evaluations ADD COLUMN IF NOT EXISTS gwc JSONB NOT NULL DEFAULT '{}'`;
 
   // Backfill: give every KAM named only in free text a real login account.
   await ensureKamAccounts(sql);
+  // Sync each named KAM's login to their real, org-assigned email address.
+  await applyKamEmailOverrides(sql);
 
   const existing = await sql`SELECT COUNT(*)::int AS n FROM users`;
   if ((existing[0] as { n: number }).n > 0) return;
@@ -235,6 +270,7 @@ async function initSchema(sql: Sql) {
 
   // Create logins for the KAMs named in the freshly-seeded assignments.
   await ensureKamAccounts(sql);
+  await applyKamEmailOverrides(sql);
 }
 
 // Memoise schema initialisation per serverless instance.

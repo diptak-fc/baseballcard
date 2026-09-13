@@ -1,23 +1,36 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requireRole, errorResponse } from "@/lib/auth";
-import { SELF_KAM_CATEGORIES, MAX_NOTE_LEN } from "@/lib/scoring";
+import { SELF_KAM_CATEGORIES, MAX_SELF_NOTE_WORDS, wordCount } from "@/lib/scoring";
 
 // GET a CSM's self-evaluations.
-//   CSM: always their own.
-//   Admin/CEO: ?userId=&year=  (for the comparative analysis view)
+//   CSM: always their own (?year=).
+//   Admin/CEO: ?userId=&year=  — one CSM's whole year (comparative analysis view)
+//   Admin/CEO: ?year=&month=  (no userId) — every CSM's self-evaluation for that
+//              single month, for the Director's monthly review page.
 export async function GET(req: NextRequest) {
   try {
     const session = await requireRole("ADMIN", "CEO", "CSM");
     const sp = req.nextUrl.searchParams;
     const year = Number(sp.get("year")) || new Date().getFullYear();
+    const month = sp.get("month") ? Number(sp.get("month")) : null;
     let userId = sp.get("userId") ? Number(sp.get("userId")) : null;
     if (session.role === "CSM") userId = session.uid;
+
+    const sql = await db();
+
+    if (!userId && (session.role === "ADMIN" || session.role === "CEO") && month) {
+      const rows = await sql`
+        SELECT id, user_id, year, month, scores, notes, submitted_at, updated_at
+        FROM self_evaluations WHERE year = ${year} AND month = ${month}
+        ORDER BY user_id`;
+      return NextResponse.json({ evaluations: rows });
+    }
+
     if (!userId) {
       return NextResponse.json({ error: "userId is required" }, { status: 400 });
     }
 
-    const sql = await db();
     const rows = await sql`
       SELECT id, user_id, year, month, scores, notes, submitted_at, updated_at
       FROM self_evaluations WHERE user_id = ${userId} AND year = ${year}
@@ -30,7 +43,7 @@ export async function GET(req: NextRequest) {
 
 // POST: a CSM saves/updates their own monthly self-evaluation.
 //   body: { year, month, scores, notes }
-// notes is { [categoryKey]: string } — each capped at 500 characters, optional.
+// notes is { [categoryKey]: string } — each capped at 300 words, optional.
 // No approval gate: the CSM can revise this at any time.
 export async function POST(req: NextRequest) {
   try {
@@ -56,9 +69,9 @@ export async function POST(req: NextRequest) {
     for (const c of SELF_KAM_CATEGORIES) {
       const n = notes?.[c.key];
       if (typeof n === "string" && n.trim()) {
-        if (n.length > MAX_NOTE_LEN) {
+        if (wordCount(n) > MAX_SELF_NOTE_WORDS) {
           return NextResponse.json(
-            { error: `Your note for ${c.label} is over ${MAX_NOTE_LEN} characters` },
+            { error: `Your note for ${c.label} is over ${MAX_SELF_NOTE_WORDS} words` },
             { status: 400 }
           );
         }

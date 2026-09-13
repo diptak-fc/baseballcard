@@ -17,7 +17,7 @@ export type Scores = Record<CategoryKey, number>;
 // banding) stays on the original six categories above.
 export const EXTRA_SELF_KAM_CATEGORIES = [
   { key: "resultsDriven", label: "Results-Driven" },
-  { key: "projectManagement", label: "Project Management" },
+  { key: "projectManagement", label: "Follow Through" },
 ] as const;
 
 export const SELF_KAM_CATEGORIES = [
@@ -62,7 +62,7 @@ export function average(scores: Partial<Scores> | null | undefined): number | nu
 }
 
 // Self-evaluation and KAM evaluation — the six original categories plus
-// Results-Driven and Project Management.
+// Results-Driven and Follow Through.
 export function averageSelfKam(scores: SelfKamScores | null | undefined): number | null {
   return averageOver(scores, SELF_KAM_CATEGORIES);
 }
@@ -157,8 +157,28 @@ export function fmtScore(n: number | null | undefined): string {
   return typeof n === "number" ? n.toFixed(1) : "—";
 }
 
-// ---- Self-evaluation / KAM-evaluation note limit ---------------------------
-export const MAX_NOTE_LEN = 500;
+// ---- Word counting (notes, feedback, GWC remarks) --------------------------
+// We count words rather than characters everywhere a person writes free
+// text, so the limit tracks with how much they're actually saying.
+export function wordCount(text: string | null | undefined): number {
+  const t = (text || "").trim();
+  if (!t) return 0;
+  return t.split(/\s+/).length;
+}
+
+// The Director's monthly note/feedback: capped at 500 words. The textarea
+// turns red and submission is blocked past this.
+export const MAX_NOTE_WORDS = 500;
+
+// A CSM's self-evaluation note, per category: capped at 300 words — tighter
+// than the Director's note since this is meant to be a quick justification,
+// not a long narrative. Same red-border / blocked-submit behavior.
+export const MAX_SELF_NOTE_WORDS = 300;
+
+// A KAM's GWC remark (required only when they answer "No" to a GWC
+// question) gets more room since it may need a couple of sentences, but is
+// still capped so it stays a summary rather than an essay.
+export const MAX_GWC_REMARK_WORDS = 150;
 
 // Variance between a CSM's self-score and their KAM's score of them, per
 // category. Used by the Director/CEO comparative analysis view.
@@ -172,30 +192,22 @@ export function variance(self: number | null | undefined, other: number | null |
 // Coordination / Collaboration / Leadership share a 4-point scale;
 // Knowledge Sharing is a 2-point yes/no; Meeting Availability is a 3-point scale.
 
-export const KAM_SCALE_4 = [
-  { value: 1, label: "Non-" },
-  { value: 2, label: "Mildly" },
-  { value: 3, label: "Very" },
-  { value: 4, label: "Extremely" },
-] as const;
-
-export const KAM_KNOWLEDGE_SCALE = [
-  { value: 1, label: "Not done" },
-  { value: 2, label: "Done" },
-] as const;
-
-export const KAM_AVAILABILITY_SCALE = [
-  { value: 1, label: "Not present" },
-  { value: 2, label: "Intermittent" },
-  { value: 3, label: "Very present" },
+// Unified 0/5/10 scale used for every parameter a CSM rates their KAM on.
+// 0 = the KAM was not available/present on this dimension at all;
+// 5 = the midpoint — showed up, but inconsistently or only partially;
+// 10 = fully present and reliable on this dimension.
+export const KAM_UNIFIED_SCALE = [
+  { value: 0, label: "Not Available" },
+  { value: 5, label: "Somewhat Available" },
+  { value: 10, label: "Fully Available" },
 ] as const;
 
 export const KAM_PARAMS = [
-  { key: "coordination", label: "Coordination", scale: KAM_SCALE_4, prefixLabel: "coordinative" },
-  { key: "collaboration", label: "Collaboration", scale: KAM_SCALE_4, prefixLabel: "collaborative" },
-  { key: "leadership", label: "Leadership", scale: KAM_SCALE_4, prefixLabel: "" },
-  { key: "knowledgeSharing", label: "Knowledge Sharing", scale: KAM_KNOWLEDGE_SCALE, prefixLabel: "" },
-  { key: "meetingAvailability", label: "Meeting Availability", scale: KAM_AVAILABILITY_SCALE, prefixLabel: "" },
+  { key: "coordination", label: "Coordination", scale: KAM_UNIFIED_SCALE, prefixLabel: "coordinative" },
+  { key: "collaboration", label: "Collaboration", scale: KAM_UNIFIED_SCALE, prefixLabel: "collaborative" },
+  { key: "leadership", label: "Leadership", scale: KAM_UNIFIED_SCALE, prefixLabel: "" },
+  { key: "knowledgeSharing", label: "Knowledge Sharing", scale: KAM_UNIFIED_SCALE, prefixLabel: "" },
+  { key: "meetingAvailability", label: "Meeting Availability", scale: KAM_UNIFIED_SCALE, prefixLabel: "" },
 ] as const;
 
 export type KamParamKey = (typeof KAM_PARAMS)[number]["key"];
@@ -218,4 +230,44 @@ export function kamFeedbackScore(scores: KamFeedbackScores): number | null {
   }
   if (parts.length === 0) return null;
   return Math.round((parts.reduce((a, b) => a + b, 0) / parts.length) * 100) / 100;
+}
+
+// ---- GWC framework -----------------------------------------------------
+// When a KAM scores a CSM, they must also judge, for that CSM that month:
+// does the CSM Get it, Want it, and Have the capability to do it. Each is a
+// mandatory Yes/No call; picking "No" requires a short remark saying why.
+// This is separate from — and required alongside — the 0-10 category
+// scores on the same KAM evaluation.
+
+export const GWC_ITEMS = [
+  { key: "getsIt", label: "Gets It", question: "Does this CSM get it?" },
+  { key: "wantsIt", label: "Wants It", question: "Does this CSM want it?" },
+  { key: "capability", label: "Has The Capability", question: "Does this CSM have the capability to do it?" },
+] as const;
+
+export type GwcKey = (typeof GWC_ITEMS)[number]["key"];
+export type GwcAnswer = { value?: "yes" | "no"; remark?: string };
+export type GwcScores = Partial<Record<GwcKey, GwcAnswer>>;
+
+// True only once every GWC item has a Yes/No answer, and every "No" answer
+// carries a non-empty remark explaining why.
+export function gwcComplete(gwc: GwcScores | null | undefined): boolean {
+  if (!gwc) return false;
+  return GWC_ITEMS.every((item) => {
+    const a = gwc[item.key];
+    if (!a || (a.value !== "yes" && a.value !== "no")) return false;
+    if (a.value === "no" && !(a.remark && a.remark.trim())) return false;
+    return true;
+  });
+}
+
+// How many of the 3 GWC items are missing an answer (or a required remark) —
+// used to drive the attention icon / count on the KAM's scoring screen.
+export function gwcMissingCount(gwc: GwcScores | null | undefined): number {
+  return GWC_ITEMS.filter((item) => {
+    const a = gwc?.[item.key];
+    if (!a || (a.value !== "yes" && a.value !== "no")) return true;
+    if (a.value === "no" && !(a.remark && a.remark.trim())) return true;
+    return false;
+  }).length;
 }
